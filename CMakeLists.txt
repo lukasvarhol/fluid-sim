@@ -10,6 +10,7 @@ add_executable(fluid-sim
     src/config.h 
     src/main.cpp 
     src/glad.c
+    src/triangle_mesh.cpp
 )
 
 target_include_directories(fluid-sim PRIVATE dependencies)

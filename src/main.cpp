@@ -1,4 +1,5 @@
 #include "config.h"
+#include "triangle_mesh.h"
 
 unsigned int make_shader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 unsigned int make_module(const std::string& filepath, unsigned int module_type);
@@ -22,19 +23,24 @@ int main() {
     }
     glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
 
+    TriangleMesh* triangle = new TriangleMesh();
+
     unsigned int shader = make_shader(
-        "../src/shaders/vertex.txt", 
-        "../src/shaders/fragment.txt"
+        "src/shaders/vertex.txt", 
+        "src/shaders/fragment.txt"
     );
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
+        triangle->draw();
+
         glfwSwapBuffers(window);
     }
 
     glDeleteProgram(shader);
+    delete triangle;
     glfwTerminate();
     return 0;
 }
