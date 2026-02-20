@@ -9,5 +9,5 @@ public:
 
 private:
     unsigned int EBO, VAO, vertexCount;
-    std::vector<unsigned int> VBOs;
+    unsigned int VBO;
 };

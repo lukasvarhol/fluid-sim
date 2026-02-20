@@ -1,9 +1,24 @@
 #version 330 core
 
-in vec3 fragmentColor;
+in vec4 fragmentColor;
 
 out vec4 screenColor;
 
+in vec2 uv;
+
+uniform float aspect;
+uniform vec4 color;
+
 void main() {
-    screenColor = vec4(fragmentColor, 1.0);
+    vec2 p = uv;
+
+    if (aspect >= 1.0) {
+        p.x *= aspect;
+    } else {
+        p.y /= aspect;  
+    }
+
+    if (dot(p, p) > 1.0) discard;
+
+    screenColor = color;
 }

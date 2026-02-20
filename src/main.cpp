@@ -1,8 +1,19 @@
 #include "config.h"
 #include "triangle_mesh.h"
+#include "linear_algebra.h"
 
 unsigned int make_shader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 unsigned int make_module(const std::string& filepath, unsigned int module_type);
+std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
+
+    unsigned int shader = (unsigned int)(uintptr_t)glfwGetWindowUserPointer(window);
+    glUseProgram(shader);
+    glUniform1f(glGetUniformLocation(shader, "aspect"), (float)width / (float)height);
+}
 
 int main() {
 
@@ -16,19 +27,46 @@ int main() {
     window = glfwCreateWindow(640, 480, "Fluid Sim", NULL, NULL);
     glfwMakeContextCurrent(window);
 
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         glfwTerminate();
         return -1;
     }
-    glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
+
+    std::vector<float> background_color = rgba_normalizer(205, 210, 235, 1);
+    glClearColor(background_color[0], background_color[1], background_color[2], background_color[3]);
 
     TriangleMesh* triangle = new TriangleMesh();
+    std::vector<float> body_color = rgba_normalizer(230, 47, 105, 1);
 
     unsigned int shader = make_shader(
         "src/shaders/vertex.txt", 
         "src/shaders/fragment.txt"
     );
+    glfwSetWindowUserPointer(window, (void*)(uintptr_t)shader);
+
+    int w, h;
+    glfwGetFramebufferSize(window, &w, &h);
+    glViewport(0, 0, w, h);
+
+    glUseProgram(shader);
+    glUniform1f(glGetUniformLocation(shader, "aspect"), (float)w / (float)h);
+    glUniform4f(
+        glGetUniformLocation(shader, "color"), 
+        body_color[0], 
+        body_color[1], 
+        body_color[2], 
+        body_color[3]
+    );
+
+    vec3 quad_position = {0.5f, -0.5f, 0.0f};
+    vec3 quad_scaling = {0.05f, 0.05f, 0.1f};
+    mat4 model = mat4_multiply(create_matrix_transform(quad_position),create_matrix_scaling(quad_scaling));
+    unsigned int model_location = glGetUniformLocation(shader, "model");
+    glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);\
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -98,4 +136,13 @@ unsigned int make_module(const std::string& filepath, unsigned int module_type) 
     }
 
     return shaderModule;
+}
+
+std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a){
+        return {
+        r / 255.0f,
+        g / 255.0f,
+        b / 255.0f,
+        (float) a
+    };
 }
