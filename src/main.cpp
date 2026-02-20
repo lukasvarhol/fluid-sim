@@ -61,17 +61,45 @@ int main() {
         body_color[2], 
         body_color[3]
     );
+    float particle_size = 0.025f;
+    vec3 quad_position = {0.0f, 0.5f, 0.0f};
+    vec3 quad_scaling = {particle_size, particle_size, 0.1f};
 
-    vec3 quad_position = {0.5f, -0.5f, 0.0f};
-    vec3 quad_scaling = {0.05f, 0.05f, 0.1f};
-    mat4 model = mat4_multiply(create_matrix_transform(quad_position),create_matrix_scaling(quad_scaling));
+    vec3 quad_velocity = {0.0f, 0.0f, 0.0f};
+    vec3 gravity = {0.0f, -2.71f, 0.0f};       
+    float energy_loss = 0.85f;
+
+    double lastTime = glfwGetTime();
+
     unsigned int model_location = glGetUniformLocation(shader, "model");
-    glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);\
 
     while (!glfwWindowShouldClose(window)) {
+        double now = glfwGetTime();
+        float dt = (float)(now - lastTime);
+        lastTime = now;
+
+        quad_velocity.entries[0] += gravity.entries[0] * dt;
+        quad_velocity.entries[1] += gravity.entries[1] * dt;
+        quad_velocity.entries[2] += gravity.entries[2] * dt;
+
+        quad_position.entries[0] += quad_velocity.entries[0] * dt;
+        quad_position.entries[1] += quad_velocity.entries[1] * dt;
+        quad_position.entries[2] += quad_velocity.entries[2] * dt;
+
+        float floorY = -1.0f + particle_size;
+        if (quad_position.entries[1] < floorY) {
+            quad_position.entries[1] = floorY;
+            quad_velocity.entries[1] *= -1.0f * energy_loss;
+        }
+
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
+        mat4 model = mat4_multiply(
+            create_matrix_transform(quad_position),
+            create_matrix_scaling(quad_scaling)
+        );
+        glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);
         triangle->draw();
 
         glfwSwapBuffers(window);
