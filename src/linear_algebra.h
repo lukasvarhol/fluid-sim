@@ -15,6 +15,10 @@ struct vec3 {
     float entries[3];
 };
 
+struct vec4 {
+    float entries[4];
+};
+
 mat4 create_matrix_transform(vec3 translation);
 mat4 create_matrix_scaling(vec3 scaling);
 mat4 mat4_multiply(mat4 a, mat4 b);
