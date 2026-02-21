@@ -1,7 +1,5 @@
 #version 330 core
 
-in vec4 fragmentColor;
-
 out vec4 screenColor;
 
 in vec2 uv;
@@ -10,15 +8,11 @@ uniform float aspect;
 uniform vec4 color;
 
 void main() {
-    vec2 p = uv;
+    float d = length(uv) - 0.5;   // use 1.0 if uv is [-1,1]; use 0.5 if uv is [-0.5,0.5]
+    float w = fwidth(d);
+    float a = 1.0 - smoothstep(0.0, w, d);
 
-    if (aspect >= 1.0) {
-        p.x *= aspect;
-    } else {
-        p.y /= aspect;  
-    }
+    if (a <= 0.0) discard;
+    screenColor = vec4(color.rgb, color.a * a);
 
-    if (dot(p, p) > 1.0) discard;
-
-    screenColor = color;
 }

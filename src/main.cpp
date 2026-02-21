@@ -9,13 +9,14 @@ std::vector<float> rgba_normalizer(const int r, const int g, const int b, const 
 vec4 lerp(const vec4&a, const vec4&b, float s);
 vec4 getColor(const vec3 velocity);
 
+static int g_fb_w = 640;
+static int g_fb_h = 480;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
+    g_fb_w = width;
+    g_fb_h = height;
     glViewport(0, 0, width, height);
-
-    unsigned int shader = (unsigned int)(uintptr_t)glfwGetWindowUserPointer(window);
-    glUseProgram(shader);
-    glUniform1f(glGetUniformLocation(shader, "aspect"), (float)width / (float)height);
 }
 
 int main() {
@@ -50,26 +51,24 @@ int main() {
     );
     glfwSetWindowUserPointer(window, (void*)(uintptr_t)shader);
 
-    int w, h;
-    glfwGetFramebufferSize(window, &w, &h);
-    glViewport(0, 0, w, h);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glfwGetFramebufferSize(window, &g_fb_w, &g_fb_h);
+    glViewport(0, 0, g_fb_w, g_fb_h);
 
     glUseProgram(shader);
 
-    float particle_size = 0.025f;
+    float radius_px = 15.0f;
     vec3 quad_position = {0.0f, 0.5f, 0.0f};
-    vec3 quad_scaling = {particle_size, particle_size, 0.1f};
-
-    vec3 quad_velocity = {0.0f, 0.0f, 0.0f};
-    vec3 gravity = {0.0f, -2.71f, 0.0f};       
+  
+    vec3 quad_velocity = {1.6f, 0.8f, 0.0f};
+    vec3 gravity = {0.0f, -3.5f, 0.0f};       
     float energy_loss = 0.85f;
 
     vec4 object_color = {1.0f, 1.0f, 1.0f, 1.0f};
 
     double lastTime = glfwGetTime();
-
-    unsigned int aspect_location = glGetUniformLocation(shader, "aspect");
-    glUniform1f(aspect_location, (float)w / (float)h);
 
     unsigned int color_location = glGetUniformLocation(shader, "color");
     unsigned int model_location = glGetUniformLocation(shader, "model");
@@ -89,10 +88,38 @@ int main() {
 
         object_color = getColor(quad_velocity);
 
-        float floorY = -1.0f + particle_size;
-        if (quad_position.entries[1] < floorY) {
+        float sx = (2.0f * radius_px) / (float)g_fb_w;  // diameter in NDC
+        float sy = (2.0f * radius_px) / (float)g_fb_h;
+
+        vec3 quad_scaling = { sx, sy, 1.0f };
+
+        float radius_ndc_y = (radius_px) / (float)g_fb_h; 
+        float radius_ndc_x = (radius_px) / (float)g_fb_w;
+        float halfsize_x = radius_ndc_x;
+        float halfsize_y = radius_ndc_y; 
+        float floorY = -1.0f + radius_ndc_y;
+        float ceilY = 1.0f - radius_ndc_y;
+        float leftX = -1.0f + radius_ndc_x;
+        float rightX = 1.0f - radius_ndc_x;
+
+        if (quad_position.entries[1] <= floorY) {
             quad_position.entries[1] = floorY;
             quad_velocity.entries[1] *= -1.0f * energy_loss;
+        }
+
+        if (quad_position.entries[1] >= ceilY) {
+            quad_position.entries[1] = ceilY;
+            quad_velocity.entries[1] *= -1.0f * energy_loss;
+        }
+
+        if (quad_position.entries[0] <= leftX) {
+            quad_position.entries[0] = leftX;
+            quad_velocity.entries[0] *= -1.0f * energy_loss;
+        }
+
+        if (quad_position.entries[0] >= rightX) {
+            quad_position.entries[0] = rightX;
+            quad_velocity.entries[0] *= -1.0f * energy_loss;
         }
 
         glfwPollEvents();
@@ -188,7 +215,7 @@ std::vector<float> rgba_normalizer(const int r, const int g, const int b, const 
 }
 
 vec4 getColor(const vec3 velocity){
-    float max_speed = 4.0f; 
+    float max_speed = 6.0f; 
 
     float magnitude = std::sqrt(
         velocity.entries[0] * velocity.entries[0] +
