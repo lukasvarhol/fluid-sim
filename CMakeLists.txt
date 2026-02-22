@@ -12,6 +12,7 @@ add_executable(fluid-sim
     src/glad.c
     src/triangle_mesh.cpp
     src/linear_algebra.cpp
+    src/particle.cpp
 )
 
 target_include_directories(fluid-sim PRIVATE dependencies)

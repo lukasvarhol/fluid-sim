@@ -8,7 +8,7 @@ uniform float aspect;
 uniform vec4 color;
 
 void main() {
-    float d = length(uv) - 0.5;   // use 1.0 if uv is [-1,1]; use 0.5 if uv is [-0.5,0.5]
+    float d = length(uv) - 0.5; 
     float w = fwidth(d);
     float a = 1.0 - smoothstep(0.0, w, d);
 
