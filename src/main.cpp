@@ -8,10 +8,25 @@ unsigned int make_module(const std::string& filepath, unsigned int module_type);
 std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
 float randomFloat(float lowerbound);
 
-static int g_fb_w = 640;
-static int g_fb_h = 480;
+static bool g_paused = false;
+static bool g_step_one = false;
+
+static int g_fb_w = 720;
+static int g_fb_h = 540;
 const unsigned int NUM_PARTICLES = 2000;
 std::vector<Particle> particles;
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (action != GLFW_PRESS) return;
+
+    if (key == GLFW_KEY_SPACE) {
+        g_paused = !g_paused;
+    }
+    if (key == GLFW_KEY_RIGHT) {
+        g_step_one = true; 
+    }
+}
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -29,11 +44,11 @@ int main() {
         return -1;
     }
 
-    window = glfwCreateWindow(640, 480, "Fluid Sim", NULL, NULL);
+    window = glfwCreateWindow(g_fb_w, g_fb_h, "Fluid Sim", NULL, NULL);
     glfwMakeContextCurrent(window);
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
+    glfwSetKeyCallback(window, key_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
@@ -71,15 +86,30 @@ int main() {
     unsigned int model_location = glGetUniformLocation(shader, "model");
 
     while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents(); 
+
         double now = glfwGetTime();
-        float dt = (float)(now - lastTime);
+        float dt_measured = static_cast<float>(now - lastTime);
+
         lastTime = now;
 
-        for (auto& p : particles) {
-            p.update(dt, (float)g_fb_w, (float)g_fb_h);
+        dt_measured = std::min(dt_measured, 1.0f / 30.0f);
+
+        float dt_to_sim = 0.0f;
+
+        if (!g_paused) {
+            dt_to_sim = dt_measured;
+        } else if (g_step_one) {
+            dt_to_sim = 1.0f / 60.0f;   
+            g_step_one = false;
         }
 
-        float sx = (2.0f * radius_px) / (float)g_fb_w;  // diameter in NDC
+        if (dt_to_sim > 0.0f) {
+            for (auto& p : particles)
+                p.update(dt_to_sim, (float)g_fb_w, (float)g_fb_h);
+        }
+
+        float sx = (2.0f * radius_px) / (float)g_fb_w;  
         float sy = (2.0f * radius_px) / (float)g_fb_h;
 
         std::vector<float> quad_scaling = { sx, sy, 1.0f };
@@ -109,6 +139,7 @@ int main() {
 
         glfwSwapBuffers(window);
     }
+    
 
     glDeleteProgram(shader);
     delete triangle;
