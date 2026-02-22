@@ -4,7 +4,7 @@
 
 std::vector<float> gravity = {0.0f, -3.5f, 0.0f};  
 float max_speed = 6.0f; 
-float energy_loss = 0.65;
+float energy_loss = 0.85;
 
 float radius_ndc_y; 
 float radius_ndc_x;

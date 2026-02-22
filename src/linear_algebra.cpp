@@ -1,6 +1,7 @@
 #include "linear_algebra.h"
 
 mat4 create_matrix_transform(const std::vector<float>& translation) {
+    assert(translation.size() >= 3);
     mat4 matrix = mat4::identity();
 
     matrix.entries[12] = translation[0];
@@ -11,6 +12,7 @@ mat4 create_matrix_transform(const std::vector<float>& translation) {
 }
 
 mat4 create_matrix_scaling(const std::vector<float>& scaling) {
+    assert(scaling.size() >= 3);
     mat4 matrix = mat4::identity();
 
     matrix.entries[0] = scaling[0];
@@ -37,10 +39,7 @@ mat4 mat4_multiply(mat4 a, mat4 b){
 }
 
 std::vector<float> addVector(const std::vector<float>& a, const std::vector<float>& b){
-    if (a.size() != b.size()){
-        std::cerr << "vector dimensions do not match" << std::endl;
-        return a;
-    } 
+    assert(a.size() == b.size());
     size_t size = a.size();
     std::vector<float> result;
 
@@ -52,10 +51,7 @@ std::vector<float> addVector(const std::vector<float>& a, const std::vector<floa
 }
 
 std::vector<float> subtractVector(const std::vector<float>& a, const std::vector<float>& b){
-    if (a.size() != b.size()){
-        std::cerr << "vector dimensions do not match" << std::endl;
-        return a;
-    } 
+    assert(a.size() == b.size());
     size_t size = a.size();
     std::vector<float> result;
 
@@ -77,10 +73,7 @@ std::vector<float> scaleVector(const std::vector<float>& a, const float& s){
 }
 
 std::vector<float> elemwiseMultiply(const std::vector<float>& a, const std::vector<float>& b){
-    if (a.size() != b.size()){
-        std::cerr << "vector dimensions do not match" << std::endl;
-        return a;
-    } 
+    assert(a.size() == b.size());
     size_t size = a.size();
 
     std::vector<float> result;
@@ -102,9 +95,6 @@ float sumVectorComponents(const std::vector<float>& a){
 }
 
 std::vector<float> lerp(const std::vector<float>& a, const std::vector<float>& b, float s){
-    if (a.size() != b.size()){
-        std::cerr << "vector dimensions do not match" << std::endl;
-        return a;
-    }
+    assert(a.size() == b.size());
     return addVector(a,scaleVector(subtractVector(b,a),s));
 }

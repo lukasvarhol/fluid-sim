@@ -6,9 +6,12 @@
 unsigned int make_shader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 unsigned int make_module(const std::string& filepath, unsigned int module_type);
 std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
+float randomFloat(float lowerbound);
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
+const unsigned int NUM_PARTICLES = 2000;
+std::vector<Particle> particles;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -56,12 +59,11 @@ int main() {
     glViewport(0, 0, g_fb_w, g_fb_h);
 
     glUseProgram(shader);
+    unsigned int radius_px = 5;
 
-    std::vector<float> pos = {0.0f, 0.0f, 0.0f};
-    std::vector<float> vel = {1.0f, 3.0f, 0.0f};
-    unsigned int radius_px = 10;
-
-    Particle* particle = new Particle(pos, vel, radius_px);
+    for (int i = 0; i < NUM_PARTICLES; ++i){
+        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(0.0f), 0.0f},{randomFloat(-1.0f),randomFloat(0.0f), 0.0f},radius_px));
+    }
 
     double lastTime = glfwGetTime();
 
@@ -72,7 +74,10 @@ int main() {
         double now = glfwGetTime();
         float dt = (float)(now - lastTime);
         lastTime = now;
-        particle->update(dt, (float)g_fb_w, (float)g_fb_h);
+
+        for (auto& p : particles) {
+            p.update(dt, (float)g_fb_w, (float)g_fb_h);
+        }
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;  // diameter in NDC
         float sy = (2.0f * radius_px) / (float)g_fb_h;
@@ -82,20 +87,25 @@ int main() {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
-        mat4 model = mat4_multiply(
-            create_matrix_transform(particle->pos),
-            create_matrix_scaling(quad_scaling)
-        );
-        glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);
+        for (const auto& p : particles) {
 
-        glUniform4f(
-            color_location, 
-            particle->color[0], 
-            particle->color[1], 
-            particle->color[2], 
-            particle->color[3]
-        );
-        triangle->draw();
+            mat4 model = mat4_multiply(
+                create_matrix_transform(p.pos),
+                create_matrix_scaling(quad_scaling)
+            );
+
+            glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);
+
+            glUniform4f(
+                color_location,
+                p.color[0],
+                p.color[1],
+                p.color[2],
+                p.color[3]
+            );
+
+            triangle->draw();
+        }
 
         glfwSwapBuffers(window);
     }
@@ -168,6 +178,14 @@ std::vector<float> rgba_normalizer(const int r, const int g, const int b, const 
         b / 255.0f,
         (float) a
     };
+}
+
+float randomFloat(float lowerbound) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> dist(lowerbound, 1.0f);
+
+    return dist(gen);
 }
 
 

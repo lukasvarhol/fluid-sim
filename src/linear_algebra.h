@@ -1,6 +1,7 @@
 #pragma once
 #include <vector> 
 #include <iostream>
+#include <cassert>
 
 struct mat4 {
     float entries[16];
