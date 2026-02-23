@@ -239,7 +239,7 @@ std::vector<float> rgba_normalizer(const int r, const int g, const int b, const 
 float randomFloat(float lowerbound) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    static std::uniform_real_distribution<float> dist(lowerbound, 1.0f);
+    std::uniform_real_distribution<float> dist(lowerbound, 1.0f);
 
     return dist(gen);
 }
