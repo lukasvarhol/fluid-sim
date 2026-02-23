@@ -6,10 +6,12 @@
 unsigned int make_shader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 unsigned int make_module(const std::string& filepath, unsigned int module_type);
 std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
+void reset(unsigned int radius_px);
 float randomFloat(float lowerbound);
 
 static bool g_paused = false;
 static bool g_step_one = false;
+static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
@@ -25,6 +27,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
     if (key == GLFW_KEY_RIGHT) {
         g_step_one = true; 
+    }
+    if (key == GLFW_KEY_R) {
+        g_reset = true;
     }
 }
 
@@ -44,7 +49,17 @@ int main() {
         return -1;
     }
 
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
     window = glfwCreateWindow(g_fb_w, g_fb_h, "Fluid Sim", NULL, NULL);
+    if (!window) {
+        std::cerr << "Failed to create GLFW window\n";
+        glfwTerminate();
+        return -1;
+    }
     glfwMakeContextCurrent(window);
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -74,11 +89,14 @@ int main() {
     glViewport(0, 0, g_fb_w, g_fb_h);
 
     glUseProgram(shader);
-    unsigned int radius_px = 5;
 
-    for (int i = 0; i < NUM_PARTICLES; ++i){
-        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(0.0f), 0.0f},{randomFloat(-1.0f),randomFloat(0.0f), 0.0f},radius_px));
-    }
+    float xscale, yscale;
+    glfwGetWindowContentScale(window, &xscale, &yscale);
+
+    float radius_logical = 5.0f;
+    float radius_px = radius_logical * xscale;
+
+    reset(radius_px);
 
     double lastTime = glfwGetTime();
 
@@ -97,12 +115,19 @@ int main() {
 
         float dt_to_sim = 0.0f;
 
+        if (g_reset) {
+            reset(radius_px);
+            g_reset = false;
+            g_paused = false; 
+            g_step_one = false; 
+        }
+
         if (!g_paused) {
             dt_to_sim = dt_measured;
         } else if (g_step_one) {
             dt_to_sim = 1.0f / 60.0f;   
             g_step_one = false;
-        }
+        } 
 
         if (dt_to_sim > 0.0f) {
             for (auto& p : particles)
@@ -217,6 +242,13 @@ float randomFloat(float lowerbound) {
     static std::uniform_real_distribution<float> dist(lowerbound, 1.0f);
 
     return dist(gen);
+}
+
+void reset(unsigned int radius_px){
+    particles.clear();
+    for (int i = 0; i < NUM_PARTICLES; ++i){
+        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(0.0f), 0.0f},{randomFloat(-1.0f),randomFloat(0.0f), 0.0f},radius_px));
+    }
 }
 
 

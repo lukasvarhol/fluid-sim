@@ -3,7 +3,7 @@
 #include <algorithm>
 
 std::vector<float> gravity = {0.0f, -3.5f, 0.0f};  
-float max_speed = 6.0f; 
+float max_speed = 3.5f; 
 float energy_loss = 0.85;
 
 float radius_ndc_y; 
@@ -22,7 +22,7 @@ Particle::Particle(std::vector<float> pos, std::vector<float> vel, unsigned int 
     this->pos = pos;
     this->vel = vel;
     this->radius_px = radius_px;
-    this->color = {1.0f, 1.0f, 1.0f, 1.0f};
+    this->color = {0.0f, 0.0f, 1.0f, 1.0f};
     
 }
 
