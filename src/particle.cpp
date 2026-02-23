@@ -3,8 +3,8 @@
 #include <algorithm>
 
 std::vector<float> gravity = {0.0f, -3.5f, 0.0f};  
-float max_speed = 3.5f; 
-float energy_loss = 0.85;
+const float MAX_SPEED = 3.5f; 
+const float ENERGY_RETENTION_F = 0.8f;
 
 float radius_ndc_y; 
 float radius_ndc_x;
@@ -16,7 +16,7 @@ float leftX;
 float rightX;
 
 std::vector<float> getColor(const std::vector<float> vel);
-void keepInBoundaries(Particle* particle, float g_fb_w, float g_fb_h);
+void keepInBoundaries(Particle* particle, const float g_fb_w, const float g_fb_h);
 
 Particle::Particle(std::vector<float> pos, std::vector<float> vel, unsigned int radius_px){
     this->pos = pos;
@@ -37,7 +37,7 @@ std::vector<float> getColor(const std::vector<float> vel){
 
     float magnitude = std::sqrt(sumVectorComponents(elemwiseMultiply(vel,vel)));
 
-    float s = std::clamp(magnitude / max_speed, 0.0f, 1.0f);
+    float s = std::clamp(magnitude / MAX_SPEED, 0.0f, 1.0f);
 
     for (size_t i = 0; i + 1 < ColorStops.size(); ++i){
         if (s >= ColorStops[i].pos && s <= ColorStops[i+1].pos){
@@ -64,7 +64,7 @@ std::vector<float> getColor(const std::vector<float> vel){
     return {1.0f, 1.0f, 1.0f, 1.0f};
 }
 
-void keepInBoundaries(Particle* particle, float g_fb_w, float g_fb_h){
+void keepInBoundaries(Particle* particle, const float g_fb_w, const float g_fb_h){
         radius_ndc_y = (particle->radius_px) / g_fb_h; 
         radius_ndc_x = (particle->radius_px) / g_fb_w;
         halfsize_x = radius_ndc_x;
@@ -76,21 +76,21 @@ void keepInBoundaries(Particle* particle, float g_fb_w, float g_fb_h){
 
         if (particle->pos[1] <= floorY) {
             particle->pos[1] = floorY;
-            particle->vel[1] *= -1.0f * energy_loss;
+            particle->vel[1] *= -1.0f * ENERGY_RETENTION_F;
         }
 
         if (particle->pos[1] >= ceilY) {
             particle->pos[1] = ceilY;
-            particle->vel[1] *= -1.0f * energy_loss;
+            particle->vel[1] *= -1.0f * ENERGY_RETENTION_F;
         }
 
         if (particle->pos[0] <= leftX) {
             particle->pos[0] = leftX;
-            particle->vel[0] *= -1.0f * energy_loss;
+            particle->vel[0] *= -1.0f * ENERGY_RETENTION_F;
         }
 
         if (particle->pos[0] >= rightX) {
             particle->pos[0] = rightX;
-            particle->vel[0] *= -1.0f * energy_loss;
+            particle->vel[0] *= -1.0f * ENERGY_RETENTION_F;
         }
 }

@@ -62,7 +62,7 @@ std::vector<float> subtractVector(const std::vector<float>& a, const std::vector
     return result;
 }
 
-std::vector<float> scaleVector(const std::vector<float>& a, const float& s){
+std::vector<float> scaleVector(const std::vector<float>& a, const float s){
     std::vector<float> result;
 
     for (float element : a){

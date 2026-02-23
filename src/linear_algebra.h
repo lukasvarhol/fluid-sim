@@ -21,7 +21,7 @@ mat4 create_matrix_scaling(const std::vector<float>& scaling);
 mat4 mat4_multiply(mat4 a, mat4 b);
 std::vector<float> addVector(const std::vector<float>& a, const std::vector<float>& b);
 std::vector<float> subtractVector(const std::vector<float>& a, const std::vector<float>& b);
-std::vector<float> scaleVector(const std::vector<float>& a, const float& s);
+std::vector<float> scaleVector(const std::vector<float>& a, const float s);
 std::vector<float> elemwiseMultiply(const std::vector<float>& a, const std::vector<float>& b);
 float sumVectorComponents(const std::vector<float>& a);
 std::vector<float> lerp(const std::vector<float>& a, const std::vector<float>& b, float s);
