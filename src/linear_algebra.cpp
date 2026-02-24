@@ -85,8 +85,21 @@ std::vector<float> elemwiseMultiply(const std::vector<float>& a, const std::vect
     return result;
 }
 
+std::vector<float> elemwiseDivide(const std::vector<float>& a, const std::vector<float>& b){
+    assert(a.size() == b.size());
+    size_t size = a.size();
+
+    std::vector<float> result;
+
+    for (size_t i = 0; i < size; ++i){
+        result.push_back(a[i] / b[i]);
+    }
+
+    return result;
+}
+
 float sumVectorComponents(const std::vector<float>& a){
-    float sum = 0;
+    float sum = 0.0f;
     for (float element : a){
         sum += element;
     }
@@ -97,4 +110,12 @@ float sumVectorComponents(const std::vector<float>& a){
 std::vector<float> lerp(const std::vector<float>& a, const std::vector<float>& b, float s){
     assert(a.size() == b.size());
     return addVector(a,scaleVector(subtractVector(b,a),s));
+}
+
+float calculateMagnitude(const std::vector<float>& a){
+    float sum = 0.0f;
+    for (float e : a){
+        sum += e * e;
+    }
+    return std::sqrt(sum);
 }

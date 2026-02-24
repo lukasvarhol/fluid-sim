@@ -15,8 +15,9 @@ static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
-const unsigned int NUM_PARTICLES = 2000;
+const unsigned int NUM_PARTICLES = 40;
 std::vector<Particle> particles;
+std::vector<float> densities;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -129,9 +130,23 @@ int main() {
             g_step_one = false;
         } 
 
-        if (dt_to_sim > 0.0f) {
+        const int SUBSTEPS = 2;
+        float sub_dt = dt_to_sim / SUBSTEPS;
+
+        for (int step = 0; step < SUBSTEPS; ++step) {
+            updateDensities();
+
+            for (size_t i = 0; i < particles.size(); ++i) {
+                auto Fp = calculatePressureForce(i);
+                float rho = std::max(densities[i], 1e-6f);
+                auto a = scaleVector(Fp, 1.0f / rho);
+                particles[i].vel = addVector(particles[i].vel, scaleVector(a, sub_dt));
+                clampVelocity(particles[i]);
+            }
+
             for (auto& p : particles)
-                p.update(dt_to_sim, (float)g_fb_w, (float)g_fb_h);
+                p.update(sub_dt, g_fb_w, g_fb_h); 
+
         }
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;  
@@ -200,7 +215,7 @@ unsigned int make_shader(const std::string& vertex_filepath, const std::string& 
 }
 
 unsigned int make_module(const std::string& filepath, unsigned int module_type) {
-    std::ifstream file(filepath);          // <-- OPEN IT HERE
+    std::ifstream file(filepath);       
     if (!file.is_open()) {
         std::cerr << "Failed to open shader file: " << filepath << "\n";
         return 0;
@@ -247,8 +262,9 @@ float randomFloat(float lowerbound) {
 void reset(unsigned int radius_px){
     particles.clear();
     for (int i = 0; i < NUM_PARTICLES; ++i){
-        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(0.0f), 0.0f},{randomFloat(-1.0f),randomFloat(0.0f), 0.0f},radius_px));
+        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(-1.0f), 0.0f},{0.0f,0.0f, 0.0f},radius_px));
     }
 }
+
 
 
