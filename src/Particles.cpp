@@ -9,10 +9,15 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     colors.resize(particle_count);
     densities.resize(particle_count);
 
-    int cols = (int)std::ceil(std::sqrt(particle_count));
+    float particle_spacing = 0.07f;
+
+    int particles_per_row = (int)std::sqrt(particle_count);
+    int particles_per_col = (particle_count - 1) / particles_per_row + 1;
+    float spacing = (radius_px/200.0f) *2 + particle_spacing;
+
     for (unsigned int i = 0; i < particle_count; ++i) {
-        float x = -0.8f + (i % cols) * (1.6f / cols);
-        float y = -0.8f + (i / cols) * (1.6f / cols);
+        float x = (i % particles_per_row - particles_per_row / 2.0f + 0.5f) * spacing;
+        float y = (i / particles_per_col - particles_per_col / 2.0f + 0.5f) * spacing;
         positions[i] = { x, y, 0.0f };
         velocities[i] = { 0.0f, 0.0f, 0.0f };
         colors[i]     = { 0.0f, 0.0f, 1.0f };
@@ -23,10 +28,10 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
 void Particles::update(float dt, float g_fb_w, float g_fb_h){
     updateDensities();
     for (size_t i = 0; i < particle_count; ++i) {
-        applyGravity(velocities[i], dt);
+        // applyGravity(velocities[i], dt);
 
         Vec3 pressureForce = calculatePressureForce((int)i);
-        Vec3 accel = pressureForce * (1.0f / MASS);
+        Vec3 accel = pressureForce / MASS;
         velocities[i] += accel * dt;
 
         clampVelocity(velocities[i]);        
@@ -94,18 +99,16 @@ float Particles::calculateDistance(Vec3& pos_a, Vec3& pos_b){
     return (pos_a - pos_b).magnitude();
 }
 
-float Particles::calculateInfluence(float distance){
+float Particles::smoothingKernel(float distance){
     if (distance >= SMOOTHING_RADIUS) return 0.0f;
-    float h = SMOOTHING_RADIUS;
-    float volume = (PI * h * h * h * h) / 6.0f;
-    return (h - distance) * (h - distance) / volume;
+    float volume = (25 * PI * std::powf(SMOOTHING_RADIUS,5)) / 10.0f;
+    return (3.0f * (SMOOTHING_RADIUS - distance) * (SMOOTHING_RADIUS - distance) * (SMOOTHING_RADIUS - distance)) / volume;
 }
 
-float Particles::smoothingDerivative(float distance){
+float Particles::smoothingKernelDerivative(float distance){
     if (distance >= SMOOTHING_RADIUS) return 0.0f;
-    float h = SMOOTHING_RADIUS;
-    float volume = (PI * h * h * h * h) / 6.0f;
-    return 2.0f * (h - distance) / volume;  // always positive
+    float coef = -18.0f / (5.0f * PI * std::powf(SMOOTHING_RADIUS,5));
+    return coef * (SMOOTHING_RADIUS - distance) * (SMOOTHING_RADIUS - distance);
 }
 
 float Particles::calculateDensity(size_t position_index){
@@ -114,7 +117,7 @@ float Particles::calculateDensity(size_t position_index){
     for(size_t i = 0; i < positions.size(); ++i){
         float distance = calculateDistance(positions[position_index], positions[i]);
         if (distance >= SMOOTHING_RADIUS) continue; 
-        float influence = calculateInfluence(distance);
+        float influence = smoothingKernel(distance);
         density += MASS * influence;
     }
     return density;
@@ -140,11 +143,11 @@ Vec3 Particles::calculatePressureForce(int particle_index){
     for (int other_particle_index = 0; other_particle_index < particle_count; ++other_particle_index){
         if (particle_index == other_particle_index) continue;
 
-        Vec3 offset = positions[particle_index] - positions[other_particle_index];
+        Vec3 offset = positions[other_particle_index] - positions[particle_index];
         float dst = offset.magnitude();
         Vec3 dir = dst == 0 ? Vec3{0.1f,0.1f,0.0f} : offset / dst;
 
-        float slope = smoothingDerivative(dst);
+        float slope = smoothingKernelDerivative(dst);
         float density = densities[other_particle_index];
         float shared_pressure = calculateSharedPressure(density, densities[particle_index]);
         pressure_force += dir * shared_pressure * slope * MASS/ density;

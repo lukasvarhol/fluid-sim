@@ -18,17 +18,17 @@ private:
     static constexpr float MAX_SPEED = 1.5f;
     static constexpr float ENERGY_RETENTION_F = 0.8f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.4f;
-    static constexpr float TARGET_DENSITY = 200.0f; 
-    static constexpr float PRESSURE_MULTIPLIER = 0.5f;  
+    static constexpr float SMOOTHING_RADIUS = 0.2f;
+    static constexpr float TARGET_DENSITY = 13.1f; 
+    static constexpr float PRESSURE_MULTIPLIER = 1.5f;  
 
 
     Vec3 getColor(Vec3 vel);
     void keepInBoundaries(Vec3* pos, Vec3* vel, const float radius_px, const float g_fb_w, const float g_fb_h); 
     void applyGravity(Vec3& vel, float dt);
     float calculateDistance(Vec3& pos_a, Vec3& pos_b);
-    float calculateInfluence(float distance);
-    float smoothingDerivative(float distance);
+    float smoothingKernel(float distance);
+    float smoothingKernelDerivative(float distance);
     float calculateDensity(size_t position_index);
     void updateDensities();
     float calculateSharedPressure(float a, float b);

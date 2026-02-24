@@ -14,10 +14,11 @@ static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
-const unsigned int NUM_PARTICLES = 500;
-const unsigned int RADIUS_PX = 5;
+const unsigned int NUM_PARTICLES = 300;
+const float radius_logical = 5.0f;
 
-Particles particles(NUM_PARTICLES, RADIUS_PX);
+
+Particles particles(NUM_PARTICLES, radius_logical);
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -94,7 +95,6 @@ int main() {
     float xscale, yscale;
     glfwGetWindowContentScale(window, &xscale, &yscale);
 
-    float radius_logical = 5.0f;
     float radius_px = radius_logical * xscale;
 
     reset(radius_px);
