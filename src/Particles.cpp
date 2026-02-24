@@ -1,0 +1,166 @@
+#include "particles.h"
+#include "colors.h"
+
+Particles::Particles(const unsigned int particle_count, const unsigned int radius_px)
+    : particle_count(particle_count), radius_px(radius_px)
+{
+    positions.resize(particle_count);
+    velocities.resize(particle_count);
+    colors.resize(particle_count);
+    densities.resize(particle_count);
+
+    int cols = (int)std::ceil(std::sqrt(particle_count));
+    for (unsigned int i = 0; i < particle_count; ++i) {
+        float x = -0.8f + (i % cols) * (1.6f / cols);
+        float y = -0.8f + (i / cols) * (1.6f / cols);
+        positions[i] = { x, y, 0.0f };
+        velocities[i] = { 0.0f, 0.0f, 0.0f };
+        colors[i]     = { 0.0f, 0.0f, 1.0f };
+        densities[i]  = 0.0f;
+    }
+}
+
+void Particles::update(float dt, float g_fb_w, float g_fb_h){
+    updateDensities();
+    for (size_t i = 0; i < particle_count; ++i) {
+        applyGravity(velocities[i], dt);
+
+        Vec3 pressureForce = calculatePressureForce((int)i);
+        Vec3 accel = pressureForce * (1.0f / MASS);
+        velocities[i] += accel * dt;
+
+        clampVelocity(velocities[i]);        
+
+        positions[i] += velocities[i] * dt;
+        colors[i] = getColor(velocities[i]);
+        keepInBoundaries(&positions[i], &velocities[i], radius_px, g_fb_w, g_fb_h);
+    }
+}
+
+Vec3 Particles::getColor(Vec3 vel){
+    float magnitude = vel.magnitude();
+    float s = std::clamp(magnitude / MAX_SPEED, 0.0f, 1.0f);
+
+    for (size_t i = 0; i + 1 < ColorStops.size(); ++i){
+        if (s >= ColorStops[i].pos && s <= ColorStops[i+1].pos){
+            float span = (ColorStops[i+1].pos - ColorStops[i].pos);
+            float t = (span > 0.0f) ? (s - ColorStops[i].pos) / span : 0.0f;
+
+            Vec3 lower = {
+                ColorStops[i].r,
+                ColorStops[i].g,
+                ColorStops[i].b
+            };
+            Vec3 upper = {
+                ColorStops[i+1].r,
+                ColorStops[i+1].g,
+                ColorStops[i+1].b
+            };
+
+            return lerp(lower, upper, t);
+        }
+    }
+    return {1.0f, 1.0f, 1.0f};
+}
+
+// Careful! only checks collisions in 2D
+void Particles::keepInBoundaries(Vec3* pos, Vec3* vel, const float radius_px, const float g_fb_w, const float g_fb_h) {
+    float half[2] = {
+        radius_px / g_fb_w,
+        radius_px / g_fb_h
+    };
+    float* pos_arr[2] = { &pos->x, &pos->y };
+    float* vel_arr[2] = { &vel->x, &vel->y };
+
+    for (int i = 0; i < 2; i++) {
+        float lo = -1.0f + half[i];
+        float hi =  1.0f - half[i];
+
+        if (*pos_arr[i] <= lo) {
+            *pos_arr[i] = lo;
+            *vel_arr[i] *= -ENERGY_RETENTION_F;
+        } else if (*pos_arr[i] >= hi) {
+            *pos_arr[i] = hi;
+            *vel_arr[i] *= -ENERGY_RETENTION_F;
+        }
+    }
+}
+
+void Particles::applyGravity(Vec3& vel, float dt){
+    vel += GRAVITY * dt;
+}
+
+float Particles::calculateDistance(Vec3& pos_a, Vec3& pos_b){
+    return (pos_a - pos_b).magnitude();
+}
+
+float Particles::calculateInfluence(float distance){
+    if (distance >= SMOOTHING_RADIUS) return 0.0f;
+    float h = SMOOTHING_RADIUS;
+    float volume = (PI * h * h * h * h) / 6.0f;
+    return (h - distance) * (h - distance) / volume;
+}
+
+float Particles::smoothingDerivative(float distance){
+    if (distance >= SMOOTHING_RADIUS) return 0.0f;
+    float h = SMOOTHING_RADIUS;
+    float volume = (PI * h * h * h * h) / 6.0f;
+    return 2.0f * (h - distance) / volume;  // always positive
+}
+
+float Particles::calculateDensity(size_t position_index){
+    float density = 0.0f; 
+
+    for(size_t i = 0; i < positions.size(); ++i){
+        float distance = calculateDistance(positions[position_index], positions[i]);
+        if (distance >= SMOOTHING_RADIUS) continue; 
+        float influence = calculateInfluence(distance);
+        density += MASS * influence;
+    }
+    return density;
+}
+
+void Particles::updateDensities(){
+    densities.resize(positions.size());
+    for (size_t i = 0; i < positions.size(); ++i){
+        densities[i] = calculateDensity(i);
+    }
+}
+
+float Particles::calculateSharedPressure(float a, float b){
+    float pressure_a = densityToPressure(a);
+    float pressure_b = densityToPressure(b);
+
+    return (pressure_a + pressure_b) / 2.0f;
+}
+
+Vec3 Particles::calculatePressureForce(int particle_index){
+    Vec3 pressure_force{0.0f, 0.0f, 0.0f};
+
+    for (int other_particle_index = 0; other_particle_index < particle_count; ++other_particle_index){
+        if (particle_index == other_particle_index) continue;
+
+        Vec3 offset = positions[particle_index] - positions[other_particle_index];
+        float dst = offset.magnitude();
+        Vec3 dir = dst == 0 ? Vec3{0.1f,0.1f,0.0f} : offset / dst;
+
+        float slope = smoothingDerivative(dst);
+        float density = densities[other_particle_index];
+        float shared_pressure = calculateSharedPressure(density, densities[particle_index]);
+        pressure_force += dir * shared_pressure * slope * MASS/ density;
+    }
+
+    return pressure_force;
+}
+
+float Particles::densityToPressure(float density){
+    float densityErr = density - TARGET_DENSITY;
+    float pressure = densityErr * PRESSURE_MULTIPLIER;
+    return pressure;
+}
+
+void Particles::clampVelocity(Vec3& vel){
+    float speed = vel.magnitude();
+    if (speed > MAX_SPEED)
+        vel = vel * (MAX_SPEED/speed);
+}

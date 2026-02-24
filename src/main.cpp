@@ -1,13 +1,12 @@
 #include "config.h"
 #include "triangle_mesh.h"
 #include "linear_algebra.h"
-#include "particle.h"
+#include "particles.h"
 
 unsigned int make_shader(const std::string& vertex_filepath, const std::string& fragment_filepath);
 unsigned int make_module(const std::string& filepath, unsigned int module_type);
 std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
 void reset(unsigned int radius_px);
-float randomFloat(float lowerbound);
 
 static bool g_paused = false;
 static bool g_step_one = false;
@@ -15,9 +14,10 @@ static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
-const unsigned int NUM_PARTICLES = 40;
-std::vector<Particle> particles;
-std::vector<float> densities;
+const unsigned int NUM_PARTICLES = 500;
+const unsigned int RADIUS_PX = 5;
+
+Particles particles(NUM_PARTICLES, RADIUS_PX);
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -134,33 +134,21 @@ int main() {
         float sub_dt = dt_to_sim / SUBSTEPS;
 
         for (int step = 0; step < SUBSTEPS; ++step) {
-            updateDensities();
-
-            for (size_t i = 0; i < particles.size(); ++i) {
-                auto Fp = calculatePressureForce(i);
-                float rho = std::max(densities[i], 1e-6f);
-                auto a = scaleVector(Fp, 1.0f / rho);
-                particles[i].vel = addVector(particles[i].vel, scaleVector(a, sub_dt));
-                clampVelocity(particles[i]);
-            }
-
-            for (auto& p : particles)
-                p.update(sub_dt, g_fb_w, g_fb_h); 
-
+            particles.update(sub_dt, g_fb_w, g_fb_h);
         }
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;  
         float sy = (2.0f * radius_px) / (float)g_fb_h;
 
-        std::vector<float> quad_scaling = { sx, sy, 1.0f };
+        Vec3 quad_scaling = { sx, sy, 1.0f };
 
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
-        for (const auto& p : particles) {
+        for (size_t i = 0; i < particles.positions.size(); ++i) {
 
-            mat4 model = mat4_multiply(
-                create_matrix_transform(p.pos),
+            Mat4 model = Mat4_multiply(
+                create_matrix_transform(particles.positions[i]),
                 create_matrix_scaling(quad_scaling)
             );
 
@@ -168,10 +156,10 @@ int main() {
 
             glUniform4f(
                 color_location,
-                p.color[0],
-                p.color[1],
-                p.color[2],
-                p.color[3]
+                particles.colors[i].x,
+                particles.colors[i].y,
+                particles.colors[i].z,
+                1.0f
             );
 
             triangle->draw();
@@ -251,19 +239,8 @@ std::vector<float> rgba_normalizer(const int r, const int g, const int b, const 
     };
 }
 
-float randomFloat(float lowerbound) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(lowerbound, 1.0f);
-
-    return dist(gen);
-}
-
 void reset(unsigned int radius_px){
-    particles.clear();
-    for (int i = 0; i < NUM_PARTICLES; ++i){
-        particles.push_back(Particle({randomFloat(-1.0f),randomFloat(-1.0f), 0.0f},{0.0f,0.0f, 0.0f},radius_px));
-    }
+    particles = Particles(NUM_PARTICLES, radius_px);
 }
 
 

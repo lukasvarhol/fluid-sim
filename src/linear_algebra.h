@@ -2,12 +2,15 @@
 #include <vector> 
 #include <iostream>
 #include <cassert>
+#include <cmath>
 
-struct mat4 {
+constexpr float PI = 3.14159265358979323846f;
+
+struct Mat4 {
     float entries[16];
 
-    static mat4 identity() {
-        mat4 m{};
+    static Mat4 identity() {
+        Mat4 m{};
         m.entries[0]  = 1.0f;
         m.entries[5]  = 1.0f;
         m.entries[10] = 1.0f;
@@ -16,14 +19,31 @@ struct mat4 {
     }
 };
 
-mat4 create_matrix_transform(const std::vector<float>& translation);
-mat4 create_matrix_scaling(const std::vector<float>& scaling);
-mat4 mat4_multiply(mat4 a, mat4 b);
-std::vector<float> addVector(const std::vector<float>& a, const std::vector<float>& b);
-std::vector<float> subtractVector(const std::vector<float>& a, const std::vector<float>& b);
-std::vector<float> scaleVector(const std::vector<float>& a, const float s);
-std::vector<float> elemwiseMultiply(const std::vector<float>& a, const std::vector<float>& b);
-std::vector<float> elemwiseDivide(const std::vector<float>& a, const std::vector<float>& b);
-float sumVectorComponents(const std::vector<float>& a);
-float calculateMagnitude(const std::vector<float>& a);
-std::vector<float> lerp(const std::vector<float>& a, const std::vector<float>& b, float s);
+struct Vec3 {
+    float x, y ,z;
+
+    float magnitude() const;
+    float dot(const Vec3& other) const; 
+
+    // elementwise
+    Vec3& operator+=(const Vec3& other);
+    Vec3& operator-=(const Vec3& other);
+    Vec3& operator*=(const Vec3& other); 
+    Vec3& operator/=(const Vec3& other);
+
+    Vec3 operator+(const Vec3& other) const;
+    Vec3 operator-(const Vec3& other) const;
+    Vec3 operator*(const Vec3& other) const;
+    Vec3 operator/(const Vec3& other) const;
+
+    // scalar
+    Vec3& operator*=(const float other); 
+    Vec3& operator/=(const float other);
+    Vec3 operator*(const float other) const;
+    Vec3 operator/(const float other) const;
+};
+
+Mat4 create_matrix_transform(const Vec3& translation);
+Mat4 create_matrix_scaling(const Vec3& scaling);
+Mat4 Mat4_multiply(Mat4 a, Mat4 b);
+Vec3 lerp(const Vec3& a, const Vec3& b, float s);

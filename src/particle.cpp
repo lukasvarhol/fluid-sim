@@ -21,8 +21,6 @@ float ceilY;
 float leftX;
 float rightX;
 
-
-
 Particle::Particle(std::vector<float> pos, std::vector<float> vel, unsigned int radius_px){
     this->pos = pos;
     this->vel = vel;
@@ -36,7 +34,6 @@ void Particle::update(float dt, float g_fb_w, float g_fb_h){
     pos = addVector(pos,scaleVector(vel,dt));
     color = getColor(vel);
     keepInBoundaries(this, g_fb_w, g_fb_h);
-
 }
 
 std::vector<float> getColor(const std::vector<float> vel){
@@ -100,6 +97,7 @@ void keepInBoundaries(Particle* particle, const float g_fb_w, const float g_fb_h
             particle->vel[0] *= -1.0f * ENERGY_RETENTION_F;
         }
 }
+
 void applyGravity(Particle* particle, float dt){
     particle->vel = addVector(particle->vel,scaleVector(gravity,dt));
 }

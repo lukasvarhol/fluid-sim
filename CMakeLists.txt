@@ -8,11 +8,12 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 add_executable(fluid-sim 
     src/config.h 
+    src/helpers.h
     src/main.cpp 
     src/glad.c
     src/triangle_mesh.cpp
     src/linear_algebra.cpp
-    src/particle.cpp
+    src/particles.cpp
 )
 
 target_include_directories(fluid-sim PRIVATE dependencies)

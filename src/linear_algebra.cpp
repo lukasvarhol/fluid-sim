@@ -1,29 +1,115 @@
 #include "linear_algebra.h"
 
-mat4 create_matrix_transform(const std::vector<float>& translation) {
-    assert(translation.size() >= 3);
-    mat4 matrix = mat4::identity();
+// elementwise operations
+Vec3& Vec3::operator+=(const Vec3& other){
+    x += other.x;
+    y += other.y;
+    z += other.z;
+    return *this;
+}
 
-    matrix.entries[12] = translation[0];
-    matrix.entries[13] = translation[1];
-    matrix.entries[14] = translation[2];
+Vec3& Vec3::operator-=(const Vec3& other){
+    x -= other.x;
+    y -= other.y;
+    z -= other.z;
+    return *this;
+}
+
+Vec3& Vec3::operator*=(const Vec3& other){
+    x *= other.x;
+    y *= other.y;
+    z *= other.z;
+    return *this;
+}
+
+Vec3& Vec3::operator/=(const Vec3& other){
+    x /= other.x;
+    y /= other.y;
+    z /= other.z;
+    return *this;
+}
+
+Vec3 Vec3::operator+(const Vec3& other) const{
+    Vec3 result = *this;
+    result += other;
+    return result;
+}
+
+Vec3 Vec3::operator-(const Vec3& other) const{
+    Vec3 result = *this;
+    result -= other;
+    return result;
+}
+
+Vec3 Vec3::operator*(const Vec3& other) const{
+    Vec3 result = *this;
+    result *= other;
+    return result;
+}
+
+Vec3 Vec3::operator/(const Vec3& other) const{
+    Vec3 result = *this;
+    result /= other;
+    return result;
+}
+
+// scalar operations
+Vec3& Vec3::operator*=(const float other){
+    x *= other;
+    y *= other;
+    z *= other;
+    return *this;
+}
+
+Vec3& Vec3::operator/=(const float other){
+    x /= other;
+    y /= other;
+    z /= other;
+    return *this;
+}
+
+Vec3 Vec3::operator*(const float other) const{
+    Vec3 result = *this;
+    result *= other;
+    return result;
+}
+
+Vec3 Vec3::operator/(const float other) const{
+    Vec3 result = *this;
+    result /= other;
+    return result;
+}
+
+float Vec3::dot(const Vec3& other) const {
+    return x*other.x + y*other.y + z*other.z;
+}
+
+float Vec3::magnitude() const {
+    return std::sqrt(dot(*this));
+}
+
+Mat4 create_matrix_transform(const Vec3& translation) {
+    Mat4 matrix = Mat4::identity();
+
+    matrix.entries[12] = translation.x;
+    matrix.entries[13] = translation.y;
+    matrix.entries[14] = translation.z;
 
     return matrix;
 }
 
-mat4 create_matrix_scaling(const std::vector<float>& scaling) {
-    assert(scaling.size() >= 3);
-    mat4 matrix = mat4::identity();
+Mat4 create_matrix_scaling(const Vec3& scaling) {
+    Mat4 matrix = Mat4::identity();
 
-    matrix.entries[0] = scaling[0];
-    matrix.entries[5] = scaling[1];
-    matrix.entries[10] = scaling[2];
+    matrix.entries[0] = scaling.x;
+    matrix.entries[5] = scaling.y;
+    matrix.entries[10] = scaling.z;
 
     return matrix;
 }
 
-mat4 mat4_multiply(mat4 a, mat4 b){
-    mat4 result;
+Mat4 Mat4_multiply(Mat4 a, Mat4 b){
+    Mat4 result;
 
     for (int col = 0; col < 4; ++col) {
         for (int row = 0; row < 4; ++row) {
@@ -38,84 +124,6 @@ mat4 mat4_multiply(mat4 a, mat4 b){
     return result;
 }
 
-std::vector<float> addVector(const std::vector<float>& a, const std::vector<float>& b){
-    assert(a.size() == b.size());
-    size_t size = a.size();
-    std::vector<float> result;
-
-    for (size_t i = 0; i < size; ++i){
-        result.push_back(a[i] + b[i]);
-    }
-
-    return result;
-}
-
-std::vector<float> subtractVector(const std::vector<float>& a, const std::vector<float>& b){
-    assert(a.size() == b.size());
-    size_t size = a.size();
-    std::vector<float> result;
-
-    for (size_t i = 0; i < size; ++i){
-        result.push_back(a[i] - b[i]);
-    }
-
-    return result;
-}
-
-std::vector<float> scaleVector(const std::vector<float>& a, const float s){
-    std::vector<float> result;
-
-    for (float element : a){
-        result.push_back(element * s);
-    }
-
-    return result;
-}
-
-std::vector<float> elemwiseMultiply(const std::vector<float>& a, const std::vector<float>& b){
-    assert(a.size() == b.size());
-    size_t size = a.size();
-
-    std::vector<float> result;
-
-    for (size_t i = 0; i < size; ++i){
-        result.push_back(a[i] * b[i]);
-    }
-
-    return result;
-}
-
-std::vector<float> elemwiseDivide(const std::vector<float>& a, const std::vector<float>& b){
-    assert(a.size() == b.size());
-    size_t size = a.size();
-
-    std::vector<float> result;
-
-    for (size_t i = 0; i < size; ++i){
-        result.push_back(a[i] / b[i]);
-    }
-
-    return result;
-}
-
-float sumVectorComponents(const std::vector<float>& a){
-    float sum = 0.0f;
-    for (float element : a){
-        sum += element;
-    }
-
-    return sum;
-}
-
-std::vector<float> lerp(const std::vector<float>& a, const std::vector<float>& b, float s){
-    assert(a.size() == b.size());
-    return addVector(a,scaleVector(subtractVector(b,a),s));
-}
-
-float calculateMagnitude(const std::vector<float>& a){
-    float sum = 0.0f;
-    for (float e : a){
-        sum += e * e;
-    }
-    return std::sqrt(sum);
+Vec3 lerp(const Vec3& a, const Vec3& b, float s){
+    return a + ((b - a)* s);
 }
