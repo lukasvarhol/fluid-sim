@@ -14,7 +14,7 @@ static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
-const unsigned int NUM_PARTICLES = 300;
+const unsigned int NUM_PARTICLES = 400;
 const float radius_logical = 5.0f;
 
 

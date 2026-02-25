@@ -8,8 +8,9 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     velocities.resize(particle_count);
     colors.resize(particle_count);
     densities.resize(particle_count);
+    predicted_positions.resize(particle_count);
 
-    float particle_spacing = 0.07f;
+    float particle_spacing = 0.04f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
@@ -17,32 +18,46 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
 
     for (unsigned int i = 0; i < particle_count; ++i) {
         float x = (i % particles_per_row - particles_per_row / 2.0f + 0.5f) * spacing;
-        float y = (i / particles_per_col - particles_per_col / 2.0f + 0.5f) * spacing;
+        float y = (i / particles_per_row - particles_per_col / 2.0f + 0.5f) * spacing;
         positions[i] = { x, y, 0.0f };
+        predicted_positions[i] = { x, y, 0.0f };
         velocities[i] = { 0.0f, 0.0f, 0.0f };
         colors[i]     = { 0.0f, 0.0f, 1.0f };
         densities[i]  = 0.0f;
     }
 }
 
-void Particles::update(float dt, float g_fb_w, float g_fb_h){
-    updateDensities();
-    for (size_t i = 0; i < particle_count; ++i) {
-        // applyGravity(velocities[i], dt);
+void Particles::update(float dt, float g_fb_w, float g_fb_h)
+{
+    // Optional: gravity first
+    for (size_t i = 0; i < particle_count; ++i) applyGravity(velocities[i], dt);
 
-        Vec3 pressureForce = calculatePressureForce((int)i);
+    // 1) predict positions (assignment, not +=)
+    for (size_t i = 0; i < particle_count; ++i) {
+        predicted_positions[i] = positions[i] + velocities[i] * dt;
+    }
+
+    // 2) compute densities using predicted positions
+    for (size_t i = 0; i < particle_count; ++i) {
+        densities[i] = calculateDensity(predicted_positions[i]); // make sure this uses predicted vs positions inside
+    }
+
+    // 3) compute forces + integrate
+    for (size_t i = 0; i < particle_count; ++i) {
+        Vec3 pressureForce = calculatePressureForce((int)i); // update this to use predicted_positions too (see below)
+
         Vec3 accel = pressureForce / MASS;
         velocities[i] += accel * dt;
 
-        clampVelocity(velocities[i]);        
-
+        clampVelocity(velocities[i]);
         positions[i] += velocities[i] * dt;
+
         colors[i] = getColor(velocities[i]);
         keepInBoundaries(&positions[i], &velocities[i], radius_px, g_fb_w, g_fb_h);
     }
 }
 
-Vec3 Particles::getColor(Vec3 vel){
+Vec3 Particles::getColor(Vec3& vel){
     float magnitude = vel.magnitude();
     float s = std::clamp(magnitude / MAX_SPEED, 0.0f, 1.0f);
 
@@ -111,23 +126,16 @@ float Particles::smoothingKernelDerivative(float distance){
     return coef * (SMOOTHING_RADIUS - distance) * (SMOOTHING_RADIUS - distance);
 }
 
-float Particles::calculateDensity(size_t position_index){
+float Particles::calculateDensity(Vec3& position){
     float density = 0.0f; 
 
     for(size_t i = 0; i < positions.size(); ++i){
-        float distance = calculateDistance(positions[position_index], positions[i]);
+        float distance = calculateDistance(position, positions[i]);
         if (distance >= SMOOTHING_RADIUS) continue; 
         float influence = smoothingKernel(distance);
         density += MASS * influence;
     }
     return density;
-}
-
-void Particles::updateDensities(){
-    densities.resize(positions.size());
-    for (size_t i = 0; i < positions.size(); ++i){
-        densities[i] = calculateDensity(i);
-    }
 }
 
 float Particles::calculateSharedPressure(float a, float b){
