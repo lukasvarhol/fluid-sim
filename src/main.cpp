@@ -14,8 +14,8 @@ static bool g_reset = false;
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 500;
-const float radius_logical = 7.0f;
+const unsigned int NUM_PARTICLES = 1000;
+const float radius_logical = 4.0f;
 
 
 Particles particles(NUM_PARTICLES, radius_logical);
@@ -131,7 +131,7 @@ int main() {
         } 
 
         static float accumulator = 0.0f;
-        const float FIXED_DT = 1.0f / 360.0f;
+        const float FIXED_DT = 1.0f / 280.0f;
 
         accumulator += dt_to_sim;
 

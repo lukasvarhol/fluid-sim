@@ -13,7 +13,7 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     start_indices.resize(particle_count);
     start_indices.resize(particle_count * 3);
 
-    float particle_spacing = 0.04f;
+    float particle_spacing = 0.05f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
@@ -40,15 +40,16 @@ void Particles::update(float dt, float g_fb_w, float g_fb_h)
 
     updateSpatialLut(predicted_positions); 
 
+    std::vector<int> neighbours;
+    neighbours.reserve(64);
+
     for (size_t i = 0; i < particle_count; ++i) {
-        std::vector<int> neighbours = foreachPointInRadius(predicted_positions[i]);
+        foreachPointInRadius(predicted_positions[i], neighbours);
         densities[i] = calculateDensity(predicted_positions[i], neighbours);
     }
 
-    updateSpatialLut(positions);
-
     for (size_t i = 0; i < particle_count; ++i) {
-        std::vector<int> neighbours = foreachPointInRadius(positions[i]);
+        foreachPointInRadius(positions[i], neighbours);
         Vec3 pressureForce = calculatePressureForce((int)i, neighbours);
         Vec3 viscosityForce = calculateViscosity((int)i, neighbours);
 
@@ -264,9 +265,9 @@ unsigned int Particles::getKeyFromHash(unsigned int hash){
     return hash % (unsigned int)start_indices.size(); 
 }
 
-std::vector<int> Particles::foreachPointInRadius(Vec3 point)
+void Particles::foreachPointInRadius(Vec3 point, std::vector<int>& out)
 {
-    std::vector<int> result;
+    out.clear();
     auto centre = positionToCellCord(point);
     float radius_sq = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
 
@@ -284,8 +285,7 @@ std::vector<int> Particles::foreachPointInRadius(Vec3 point)
             Vec3 d = positions[particle_index] - point;
             float dst_sq = d.x*d.x + d.y*d.y + d.z*d.z;
 
-            if (dst_sq <= radius_sq) result.push_back(particle_index);
+            if (dst_sq <= radius_sq) out.push_back(particle_index);
         }
     }
-    return result;
 }

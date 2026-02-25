@@ -26,10 +26,10 @@ private:
     static constexpr float MAX_SPEED = 3.5f;
     static constexpr float ENERGY_RETENTION_F = 0.6f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.1f;
-    static constexpr float TARGET_DENSITY = 90.0f;
-    static constexpr float PRESSURE_MULTIPLIER = 2.68f;
-    static constexpr float VISCOSITY_COEFFICIENT = 0.007f;
+    static constexpr float SMOOTHING_RADIUS = 0.08f;
+    static constexpr float TARGET_DENSITY = 85.0f;
+    static constexpr float PRESSURE_MULTIPLIER = 2.6f;
+    static constexpr float VISCOSITY_COEFFICIENT = 0.005f;
     static constexpr std::array<std::array<int, 2>, 9> cell_offsets = {{
         {-1, -1}, {0, -1}, {1, -1},
         {-1,  0}, {0,  0}, {1,  0},
@@ -54,5 +54,5 @@ private:
     std::array<int, 2> positionToCellCord(Vec3 point);
     unsigned int hashCell(std::array<int, 2> cell);
     unsigned int getKeyFromHash(unsigned int hash);
-    std::vector<int> foreachPointInRadius(Vec3 point);
+    void foreachPointInRadius(Vec3 point, std::vector<int>& out);
 };
