@@ -1,0 +1,45 @@
+2026-02-25T21:02:11+01:00
+Running ./build-bench/fluid-sim-bench
+Run on (8 X 24 MHz CPU s)
+CPU Caches:
+  L1 Data 64 KiB
+  L1 Instruction 128 KiB
+  L2 Unified 4096 KiB (x8)
+Load Average: 7.52, 8.32, 9.32
+name,iterations,real_time,cpu_time,time_unit,bytes_per_second,items_per_second,label,error_occurred,error_message
+"BM_ParticlesUpdate/200",859,0.388724,0.386616,ms,,517309,,,
+"BM_ParticlesUpdate/200",859,0.38776,0.385546,ms,,518745,,,
+"BM_ParticlesUpdate/200",859,0.381511,0.381078,ms,,524827,,,
+"BM_ParticlesUpdate/200",859,0.381747,0.38109,ms,,524811,,,
+"BM_ParticlesUpdate/200",859,0.382447,0.381902,ms,,523694,,,
+"BM_ParticlesUpdate/200_mean",5,0.384438,0.383246,ms,,521877,,,
+"BM_ParticlesUpdate/200_median",5,0.382447,0.381902,ms,,523694,,,
+"BM_ParticlesUpdate/200_stddev",5,0.00350625,0.00263636,ms,,3580.7,,,
+"BM_ParticlesUpdate/200_cv",5,1.82409,1.3758,ms,,0.0068612,,,
+"BM_ParticlesUpdate/500",317,1.3185,1.31786,ms,,379403,,,
+"BM_ParticlesUpdate/500",317,1.30915,1.30584,ms,,382896,,,
+"BM_ParticlesUpdate/500",317,1.30549,1.30236,ms,,383919,,,
+"BM_ParticlesUpdate/500",317,1.29699,1.29576,ms,,385873,,,
+"BM_ParticlesUpdate/500",317,1.31208,1.30581,ms,,382904,,,
+"BM_ParticlesUpdate/500_mean",5,1.30844,1.30553,ms,,382999,,,
+"BM_ParticlesUpdate/500_median",5,1.30915,1.30581,ms,,382904,,,
+"BM_ParticlesUpdate/500_stddev",5,0.00798062,0.00802637,ms,,2348.42,,,
+"BM_ParticlesUpdate/500_cv",5,1.21987,1.2296,ms,,0.00613166,,,
+"BM_ParticlesUpdate/1000",151,2.88067,2.85375,ms,,350416,,,
+"BM_ParticlesUpdate/1000",151,2.83385,2.82696,ms,,353737,,,
+"BM_ParticlesUpdate/1000",151,2.78415,2.7794,ms,,359789,,,
+"BM_ParticlesUpdate/1000",151,2.78811,2.78241,ms,,359401,,,
+"BM_ParticlesUpdate/1000",151,2.76795,2.76464,ms,,361710,,,
+"BM_ParticlesUpdate/1000_mean",5,2.81095,2.80143,ms,,357011,,,
+"BM_ParticlesUpdate/1000_median",5,2.78811,2.78241,ms,,359401,,,
+"BM_ParticlesUpdate/1000_stddev",5,0.0460254,0.0373805,ms,,4736.14,,,
+"BM_ParticlesUpdate/1000_cv",5,3.27473,2.66867,ms,,0.0132661,,,
+"BM_ParticlesUpdate/2000",70,5.95269,5.93737,ms,,336849,,,
+"BM_ParticlesUpdate/2000",70,5.92334,5.91246,ms,,338269,,,
+"BM_ParticlesUpdate/2000",70,5.88218,5.87196,ms,,340602,,,
+"BM_ParticlesUpdate/2000",70,5.94607,5.92801,ms,,337381,,,
+"BM_ParticlesUpdate/2000",70,6.21446,5.90696,ms,,338584,,,
+"BM_ParticlesUpdate/2000_mean",5,5.98375,5.91135,ms,,338337,,,
+"BM_ParticlesUpdate/2000_median",5,5.94607,5.91246,ms,,338269,,,
+"BM_ParticlesUpdate/2000_stddev",5,0.131887,0.0251353,ms,,1442.41,,,
+"BM_ParticlesUpdate/2000_cv",5,4.40817,0.850408,ms,,0.00426324,,,
