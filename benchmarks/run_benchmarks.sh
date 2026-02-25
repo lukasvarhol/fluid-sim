@@ -18,7 +18,7 @@ SYS="$(uname -srm)"
 RAW_CSV="$OUT_DIR/bench_${COMMIT}.csv"
 
 echo "[1/3] Configure (Release) -> $BUILD_DIR"
-cmake -S . -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "$BUILD_DIR" -DBUILD_BENCHMARKS=ON
 
 echo "[2/3] Build target -> $BENCH_EXE"
 cmake --build "$BUILD_DIR" -j --target "$BENCH_EXE"

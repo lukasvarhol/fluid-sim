@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(fluid-sim VERSION 0.1.0 LANGUAGES CXX C)
 
+option(BUILD_BENCHMARKS "Build Google Benchmark targets" OFF)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -42,26 +44,31 @@ target_link_libraries(fluid-sim PRIVATE
 )
 
 # ---- Google Benchmark ----
-include(FetchContent)
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+# ---- Google Benchmark ----
+if (BUILD_BENCHMARKS)
 
-FetchContent_Declare(
-  benchmark
-  GIT_REPOSITORY https://github.com/google/benchmark.git
-  GIT_TAG v1.8.3
-)
-FetchContent_MakeAvailable(benchmark)
+  include(FetchContent)
+  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
-add_executable(fluid-sim-bench
-  benchmarks/benchmark.cpp
-)
+  FetchContent_Declare(
+    benchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG v1.8.3
+  )
+  FetchContent_MakeAvailable(benchmark)
 
-target_link_libraries(fluid-sim-bench PRIVATE
-  fluid_core
-  benchmark::benchmark
-)
+  add_executable(fluid-sim-bench
+    benchmarks/benchmark.cpp
+  )
 
-find_package(Threads QUIET)
-if (Threads_FOUND)
-  target_link_libraries(fluid-sim-bench PRIVATE Threads::Threads)
+  target_link_libraries(fluid-sim-bench PRIVATE
+    fluid_core
+    benchmark::benchmark
+  )
+
+  find_package(Threads QUIET)
+  if (Threads_FOUND)
+    target_link_libraries(fluid-sim-bench PRIVATE Threads::Threads)
+  endif()
+
 endif()
