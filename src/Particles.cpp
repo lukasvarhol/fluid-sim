@@ -10,11 +10,11 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     densities.resize(particle_count);
     predicted_positions.resize(particle_count);
 
-    float particle_spacing = 0.04f;
+    float particle_spacing = 0.01f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
-    float spacing = (radius_px/200.0f) *2 + particle_spacing;
+    float spacing = (radius_px/400.0f) * 2 + particle_spacing;
 
     for (unsigned int i = 0; i < particle_count; ++i) {
         float x = (i % particles_per_row - particles_per_row / 2.0f + 0.5f) * spacing;
@@ -29,24 +29,22 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
 
 void Particles::update(float dt, float g_fb_w, float g_fb_h)
 {
-    // Optional: gravity first
     for (size_t i = 0; i < particle_count; ++i) applyGravity(velocities[i], dt);
 
-    // 1) predict positions (assignment, not +=)
     for (size_t i = 0; i < particle_count; ++i) {
         predicted_positions[i] = positions[i] + velocities[i] * dt;
     }
 
-    // 2) compute densities using predicted positions
     for (size_t i = 0; i < particle_count; ++i) {
-        densities[i] = calculateDensity(predicted_positions[i]); // make sure this uses predicted vs positions inside
+        densities[i] = calculateDensity(predicted_positions[i]);
     }
 
-    // 3) compute forces + integrate
     for (size_t i = 0; i < particle_count; ++i) {
-        Vec3 pressureForce = calculatePressureForce((int)i); // update this to use predicted_positions too (see below)
+        Vec3 pressureForce = calculatePressureForce((int)i);
+        Vec3 viscosityForce = calculateViscosity((int)i);
+        Vec3 boundaryForce = calculateBoundaryForce((int) i ,g_fb_w, g_fb_h);
 
-        Vec3 accel = pressureForce / MASS;
+        Vec3 accel = (pressureForce + viscosityForce) / MASS;
         velocities[i] += accel * dt;
 
         clampVelocity(velocities[i]);
@@ -55,6 +53,25 @@ void Particles::update(float dt, float g_fb_w, float g_fb_h)
         colors[i] = getColor(velocities[i]);
         keepInBoundaries(&positions[i], &velocities[i], radius_px, g_fb_w, g_fb_h);
     }
+}
+
+Vec3 Particles::calculateBoundaryForce(int i, float g_fb_w, float g_fb_h){
+    Vec3 f{0.0f, 0.0f, 0.0f};
+    float margin = SMOOTHING_RADIUS;
+    float strength = 1.5f;
+
+    Vec3& pos = positions[i];
+
+    if (pos.x < -1.0f + margin)
+        f.x += strength * (1.0f - (pos.x + 1.0f) / margin);
+    if (pos.x >  1.0f - margin)
+        f.x -= strength * (1.0f - (1.0f - pos.x) / margin);
+    if (pos.y < -1.0f + margin)
+        f.y += strength * (1.0f - (pos.y + 1.0f) / margin);
+    if (pos.y >  1.0f - margin)
+        f.y -= strength * (1.0f - (1.0f - pos.y) / margin);
+
+    return f;
 }
 
 Vec3 Particles::getColor(Vec3& vel){
@@ -98,10 +115,10 @@ void Particles::keepInBoundaries(Vec3* pos, Vec3* vel, const float radius_px, co
 
         if (*pos_arr[i] <= lo) {
             *pos_arr[i] = lo;
-            *vel_arr[i] *= -ENERGY_RETENTION_F;
+            if (*vel_arr[i] < 0) *vel_arr[i] *= -ENERGY_RETENTION_F;
         } else if (*pos_arr[i] >= hi) {
             *pos_arr[i] = hi;
-            *vel_arr[i] *= -ENERGY_RETENTION_F;
+            if (*vel_arr[i] > 0) *vel_arr[i] *= -ENERGY_RETENTION_F;
         }
     }
 }
@@ -124,6 +141,12 @@ float Particles::smoothingKernelDerivative(float distance){
     if (distance >= SMOOTHING_RADIUS) return 0.0f;
     float coef = -18.0f / (5.0f * PI * std::powf(SMOOTHING_RADIUS,5));
     return coef * (SMOOTHING_RADIUS - distance) * (SMOOTHING_RADIUS - distance);
+}
+
+float Particles::smoothingKernelLaplacian(float distance){
+    if (distance >= SMOOTHING_RADIUS) return 0.0f;
+    float h = SMOOTHING_RADIUS;
+    return 36.0f * (h - distance) / (5.0f * PI * std::powf(h, 5));
 }
 
 float Particles::calculateDensity(Vec3& position){
@@ -162,6 +185,21 @@ Vec3 Particles::calculatePressureForce(int particle_index){
     }
 
     return pressure_force;
+}
+
+Vec3 Particles::calculateViscosity(int particle_index){
+    Vec3 viscosity{0.0f, 0.0f, 0.0f};
+
+    for (int other_particle_index = 0; other_particle_index < particle_count; ++other_particle_index){
+        if (particle_index == other_particle_index) continue;
+
+        Vec3 veldiff = velocities[other_particle_index] - velocities[particle_index];
+        float dst = calculateDistance(positions[other_particle_index], positions[particle_index]);
+        float laplacian = smoothingKernelLaplacian(dst);
+        viscosity += veldiff * (MASS * laplacian / densities[other_particle_index]);
+    }
+
+    return viscosity * VISCOSITY_COEFFICIENT;
 }
 
 float Particles::densityToPressure(float density){

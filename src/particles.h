@@ -1,9 +1,10 @@
- #include <vector>
- #include <iostream>
- #include "linear_algebra.h"
- #include "helpers.h"
+#include <vector>
+#include <iostream>
+#include "linear_algebra.h"
+#include "helpers.h"
 
- struct Particles {
+struct Particles
+{
     std::vector<Vec3> positions;
     std::vector<Vec3> predicted_positions;
     std::vector<Vec3> velocities;
@@ -20,25 +21,28 @@
 
     // predicted position = position + velocity * ddt
 
-
 private:
-    static constexpr Vec3  GRAVITY{0.0f, -3.5f, 0.0f};
-    static constexpr float MAX_SPEED = 1.5f;
-    static constexpr float ENERGY_RETENTION_F = 0.8f;
+    static constexpr Vec3 GRAVITY{0.0f, -2.7f, 0.0f};
+    static constexpr float MAX_SPEED = 2.5f;
+    static constexpr float ENERGY_RETENTION_F = 0.1f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.18f;
-    static constexpr float TARGET_DENSITY = 18.0f; 
-    static constexpr float PRESSURE_MULTIPLIER = 1.0f;  
+    static constexpr float SMOOTHING_RADIUS = 0.15f;
+    static constexpr float TARGET_DENSITY = 43.0f;
+    static constexpr float PRESSURE_MULTIPLIER = 0.8f;
+    static constexpr float VISCOSITY_COEFFICIENT = 0.01f;
 
-    Vec3 getColor(Vec3& vel);
-    void keepInBoundaries(Vec3* pos, Vec3* vel, const float radius_px, const float g_fb_w, const float g_fb_h); 
-    void applyGravity(Vec3& vel, float dt);
-    float calculateDistance(Vec3& pos_a, Vec3& pos_b);
+    Vec3 getColor(Vec3 &vel);
+    Vec3 calculateBoundaryForce(int i, float g_fb_w, float g_fb_h);
+    void keepInBoundaries(Vec3 *pos, Vec3 *vel, const float radius_px, const float g_fb_w, const float g_fb_h);
+    void applyGravity(Vec3 &vel, float dt);
+    float calculateDistance(Vec3 &pos_a, Vec3 &pos_b);
     float smoothingKernel(float distance);
     float smoothingKernelDerivative(float distance);
-    float calculateDensity(Vec3& position);
+    float smoothingKernelLaplacian(float distance);
+    float calculateDensity(Vec3 &position);
     float calculateSharedPressure(float a, float b);
     Vec3 calculatePressureForce(int position_index);
+    Vec3 calculateViscosity(int particle_index);
     float densityToPressure(float density);
-    void clampVelocity(Vec3& vel);
- };
+    void clampVelocity(Vec3 &vel);
+};

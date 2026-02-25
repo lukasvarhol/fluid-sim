@@ -14,8 +14,8 @@ static bool g_reset = false;
 
 static int g_fb_w = 720;
 static int g_fb_h = 540;
-const unsigned int NUM_PARTICLES = 400;
-const float radius_logical = 5.0f;
+const unsigned int NUM_PARTICLES = 250;
+const float radius_logical = 7.0f;
 
 
 Particles particles(NUM_PARTICLES, radius_logical);
@@ -130,11 +130,14 @@ int main() {
             g_step_one = false;
         } 
 
-        const int SUBSTEPS = 2;
-        float sub_dt = dt_to_sim / SUBSTEPS;
+        static float accumulator = 0.0f;
+        const float FIXED_DT = 1.0f / 360.0f;
 
-        for (int step = 0; step < SUBSTEPS; ++step) {
-            particles.update(sub_dt, g_fb_w, g_fb_h);
+        accumulator += dt_to_sim;
+
+        while (accumulator >= FIXED_DT) {
+            particles.update(FIXED_DT, g_fb_w, g_fb_h);
+            accumulator -= FIXED_DT;
         }
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;  
