@@ -1,4 +1,7 @@
 /build
+/build-release
+/build-bench
 /CMakeFiles
 /CMakeCache.txt
 /.vscode
+/benchmarks/.venv/
