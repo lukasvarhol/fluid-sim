@@ -26,9 +26,9 @@ private:
     static constexpr float MAX_SPEED = 2.5f;
     static constexpr float ENERGY_RETENTION_F = 0.1f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.15f;
-    static constexpr float TARGET_DENSITY = 43.0f;
-    static constexpr float PRESSURE_MULTIPLIER = 0.8f;
+    static constexpr float SMOOTHING_RADIUS = 0.2f;
+    static constexpr float TARGET_DENSITY = 30.0f;
+    static constexpr float PRESSURE_MULTIPLIER = 2.4f;
     static constexpr float VISCOSITY_COEFFICIENT = 0.01f;
 
     Vec3 getColor(Vec3 &vel);

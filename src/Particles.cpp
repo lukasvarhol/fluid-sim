@@ -10,11 +10,11 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     densities.resize(particle_count);
     predicted_positions.resize(particle_count);
 
-    float particle_spacing = 0.01f;
+    float particle_spacing = 0.08f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
-    float spacing = (radius_px/400.0f) * 2 + particle_spacing;
+    float spacing = (radius_px>>6) * 2 + particle_spacing;
 
     for (unsigned int i = 0; i < particle_count; ++i) {
         float x = (i % particles_per_row - particles_per_row / 2.0f + 0.5f) * spacing;
@@ -42,7 +42,7 @@ void Particles::update(float dt, float g_fb_w, float g_fb_h)
     for (size_t i = 0; i < particle_count; ++i) {
         Vec3 pressureForce = calculatePressureForce((int)i);
         Vec3 viscosityForce = calculateViscosity((int)i);
-        Vec3 boundaryForce = calculateBoundaryForce((int) i ,g_fb_w, g_fb_h);
+        // Vec3 boundaryForce = calculateBoundaryForce((int) i ,g_fb_w, g_fb_h);
 
         Vec3 accel = (pressureForce + viscosityForce) / MASS;
         velocities[i] += accel * dt;
