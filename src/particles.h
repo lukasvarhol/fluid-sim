@@ -1,6 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <array>
 #include "linear_algebra.h"
 #include "helpers.h"
 
