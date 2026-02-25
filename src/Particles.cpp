@@ -9,12 +9,15 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     colors.resize(particle_count);
     densities.resize(particle_count);
     predicted_positions.resize(particle_count);
+    spatial_lut.resize(particle_count);
+    start_indices.resize(particle_count);
+    start_indices.resize(particle_count * 3);
 
-    float particle_spacing = 0.08f;
+    float particle_spacing = 0.04f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
-    float spacing = (radius_px>>6) * 2 + particle_spacing;
+    float spacing = ((radius_px>>6)<<1) + particle_spacing;
 
     for (unsigned int i = 0; i < particle_count; ++i) {
         float x = (i % particles_per_row - particles_per_row / 2.0f + 0.5f) * spacing;
@@ -35,22 +38,28 @@ void Particles::update(float dt, float g_fb_w, float g_fb_h)
         predicted_positions[i] = positions[i] + velocities[i] * dt;
     }
 
-    for (size_t i = 0; i < particle_count; ++i) {
-        densities[i] = calculateDensity(predicted_positions[i]);
-    }
+    updateSpatialLut(predicted_positions); 
 
     for (size_t i = 0; i < particle_count; ++i) {
-        Vec3 pressureForce = calculatePressureForce((int)i);
-        Vec3 viscosityForce = calculateViscosity((int)i);
-        // Vec3 boundaryForce = calculateBoundaryForce((int) i ,g_fb_w, g_fb_h);
+        std::vector<int> neighbours = foreachPointInRadius(predicted_positions[i]);
+        densities[i] = calculateDensity(predicted_positions[i], neighbours);
+    }
+
+    updateSpatialLut(positions);
+
+    for (size_t i = 0; i < particle_count; ++i) {
+        std::vector<int> neighbours = foreachPointInRadius(positions[i]);
+        Vec3 pressureForce = calculatePressureForce((int)i, neighbours);
+        Vec3 viscosityForce = calculateViscosity((int)i, neighbours);
 
         Vec3 accel = (pressureForce + viscosityForce) / MASS;
         velocities[i] += accel * dt;
-
         clampVelocity(velocities[i]);
-        positions[i] += velocities[i] * dt;
-
         colors[i] = getColor(velocities[i]);
+    }
+
+    for (size_t i = 0; i < particle_count; ++i) {
+        positions[i] += velocities[i] * dt;
         keepInBoundaries(&positions[i], &velocities[i], radius_px, g_fb_w, g_fb_h);
     }
 }
@@ -149,12 +158,11 @@ float Particles::smoothingKernelLaplacian(float distance){
     return 36.0f * (h - distance) / (5.0f * PI * std::powf(h, 5));
 }
 
-float Particles::calculateDensity(Vec3& position){
+float Particles::calculateDensity(Vec3& position, std::vector<int>& neighbours){
     float density = 0.0f; 
 
-    for(size_t i = 0; i < positions.size(); ++i){
-        float distance = calculateDistance(position, positions[i]);
-        if (distance >= SMOOTHING_RADIUS) continue; 
+    for (int particle_index : neighbours){
+        float distance = calculateDistance(position, predicted_positions[particle_index]);
         float influence = smoothingKernel(distance);
         density += MASS * influence;
     }
@@ -168,10 +176,10 @@ float Particles::calculateSharedPressure(float a, float b){
     return (pressure_a + pressure_b) / 2.0f;
 }
 
-Vec3 Particles::calculatePressureForce(int particle_index){
+Vec3 Particles::calculatePressureForce(int particle_index, std::vector<int>& neighbours){
     Vec3 pressure_force{0.0f, 0.0f, 0.0f};
 
-    for (int other_particle_index = 0; other_particle_index < particle_count; ++other_particle_index){
+    for (int other_particle_index : neighbours){
         if (particle_index == other_particle_index) continue;
 
         Vec3 offset = positions[other_particle_index] - positions[particle_index];
@@ -180,6 +188,7 @@ Vec3 Particles::calculatePressureForce(int particle_index){
 
         float slope = smoothingKernelDerivative(dst);
         float density = densities[other_particle_index];
+        if (density == 0.0f) continue;
         float shared_pressure = calculateSharedPressure(density, densities[particle_index]);
         pressure_force += dir * shared_pressure * slope * MASS/ density;
     }
@@ -187,16 +196,18 @@ Vec3 Particles::calculatePressureForce(int particle_index){
     return pressure_force;
 }
 
-Vec3 Particles::calculateViscosity(int particle_index){
+Vec3 Particles::calculateViscosity(int particle_index, std::vector<int>& neighbours){
     Vec3 viscosity{0.0f, 0.0f, 0.0f};
 
-    for (int other_particle_index = 0; other_particle_index < particle_count; ++other_particle_index){
+    for (int other_particle_index : neighbours){
         if (particle_index == other_particle_index) continue;
 
         Vec3 veldiff = velocities[other_particle_index] - velocities[particle_index];
         float dst = calculateDistance(positions[other_particle_index], positions[particle_index]);
         float laplacian = smoothingKernelLaplacian(dst);
-        viscosity += veldiff * (MASS * laplacian / densities[other_particle_index]);
+        float density = densities[other_particle_index];
+        if (density == 0.0f) continue;
+        viscosity += veldiff * (MASS * laplacian / density);
     }
 
     return viscosity * VISCOSITY_COEFFICIENT;
@@ -212,4 +223,69 @@ void Particles::clampVelocity(Vec3& vel){
     float speed = vel.magnitude();
     if (speed > MAX_SPEED)
         vel = vel * (MAX_SPEED/speed);
+}
+
+void Particles::updateSpatialLut(std::vector<Vec3>& pos)
+{
+    for (size_t i = 0; i < pos.size(); ++i) {
+        auto cell = positionToCellCord(pos[i]);
+        unsigned int hash = hashCell(cell);
+        spatial_lut[i] = { hash, (unsigned int)i };
+    }
+
+    std::sort(spatial_lut.begin(), spatial_lut.end(),
+        [](const auto& a, const auto& b) { return a[0] < b[0]; });
+
+    start_index_by_hash.clear();
+    start_index_by_hash.reserve(spatial_lut.size());
+
+    for (size_t i = 0; i < spatial_lut.size(); ++i) {
+        unsigned int hash = spatial_lut[i][0];
+        if (i == 0 || hash != spatial_lut[i - 1][0]) {
+            start_index_by_hash[hash] = (unsigned int)i;
+        }
+    }
+}
+
+std::array<int, 2> Particles::positionToCellCord(Vec3 point){
+    std::array<int, 2> cell_coord;
+    cell_coord[0] = (int)std::floor(point.x / SMOOTHING_RADIUS);
+    cell_coord[1] = (int)std::floor(point.y / SMOOTHING_RADIUS);
+    return cell_coord;
+}
+
+unsigned int Particles::hashCell(std::array<int, 2> cell){
+    unsigned int a = (unsigned int)cell[0] * 130399;
+    unsigned int b = (unsigned int)cell[1] * 184043;
+    return a ^ b; 
+}
+
+unsigned int Particles::getKeyFromHash(unsigned int hash){
+    return hash % (unsigned int)start_indices.size(); 
+}
+
+std::vector<int> Particles::foreachPointInRadius(Vec3 point)
+{
+    std::vector<int> result;
+    auto centre = positionToCellCord(point);
+    float radius_sq = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
+
+    for (auto offset : cell_offsets) {
+        std::array<int,2> cell = { centre[0] + offset[0], centre[1] + offset[1] };
+        unsigned int hash = hashCell(cell);
+
+        auto it = start_index_by_hash.find(hash);
+        if (it == start_index_by_hash.end()) continue;
+
+        for (unsigned int i = it->second; i < spatial_lut.size(); ++i) {
+            if (spatial_lut[i][0] != hash) break;       
+            int particle_index = (int)spatial_lut[i][1];
+
+            Vec3 d = positions[particle_index] - point;
+            float dst_sq = d.x*d.x + d.y*d.y + d.z*d.z;
+
+            if (dst_sq <= radius_sq) result.push_back(particle_index);
+        }
+    }
+    return result;
 }

@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <unordered_map>
 #include "linear_algebra.h"
 #include "helpers.h"
 
@@ -10,26 +11,29 @@ struct Particles
     std::vector<Vec3> velocities;
     std::vector<Vec3> colors;
     std::vector<float> densities;
+    std::vector<std::array<unsigned int,2>> spatial_lut;
+    std::vector<unsigned int> start_indices;
     unsigned int particle_count;
     unsigned int radius_px;
+    std::unordered_map<unsigned int, unsigned int> start_index_by_hash;
 
     Particles(const unsigned int particle_count, const unsigned int radius_px);
     void update(float dt, float g_fb_w, float g_fb_h);
 
-    // array with as many postions as particles
-    // get unique cell hash and then modulo with length of array -> cell key
-
-    // predicted position = position + velocity * ddt
-
 private:
-    static constexpr Vec3 GRAVITY{0.0f, -2.7f, 0.0f};
-    static constexpr float MAX_SPEED = 2.5f;
-    static constexpr float ENERGY_RETENTION_F = 0.1f;
+    static constexpr Vec3 GRAVITY{0.0f, -5.0f, 0.0f};
+    static constexpr float MAX_SPEED = 3.5f;
+    static constexpr float ENERGY_RETENTION_F = 0.6f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.2f;
-    static constexpr float TARGET_DENSITY = 30.0f;
-    static constexpr float PRESSURE_MULTIPLIER = 2.4f;
-    static constexpr float VISCOSITY_COEFFICIENT = 0.01f;
+    static constexpr float SMOOTHING_RADIUS = 0.1f;
+    static constexpr float TARGET_DENSITY = 90.0f;
+    static constexpr float PRESSURE_MULTIPLIER = 2.68f;
+    static constexpr float VISCOSITY_COEFFICIENT = 0.007f;
+    static constexpr std::array<std::array<int, 2>, 9> cell_offsets = {{
+        {-1, -1}, {0, -1}, {1, -1},
+        {-1,  0}, {0,  0}, {1,  0},
+        {-1,  1}, {0,  1}, {1,  1}
+    }};
 
     Vec3 getColor(Vec3 &vel);
     Vec3 calculateBoundaryForce(int i, float g_fb_w, float g_fb_h);
@@ -39,10 +43,15 @@ private:
     float smoothingKernel(float distance);
     float smoothingKernelDerivative(float distance);
     float smoothingKernelLaplacian(float distance);
-    float calculateDensity(Vec3 &position);
+    float calculateDensity(Vec3 &position, std::vector<int>& neighbours);
     float calculateSharedPressure(float a, float b);
-    Vec3 calculatePressureForce(int position_index);
-    Vec3 calculateViscosity(int particle_index);
+    Vec3 calculatePressureForce(int position_index, std::vector<int>& neighbours);
+    Vec3 calculateViscosity(int particle_index, std::vector<int>& neighbours);
     float densityToPressure(float density);
     void clampVelocity(Vec3 &vel);
+    void updateSpatialLut(std::vector<Vec3>& pos);
+    std::array<int, 2> positionToCellCord(Vec3 point);
+    unsigned int hashCell(std::array<int, 2> cell);
+    unsigned int getKeyFromHash(unsigned int hash);
+    std::vector<int> foreachPointInRadius(Vec3 point);
 };
