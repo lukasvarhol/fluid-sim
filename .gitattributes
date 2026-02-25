@@ -1,1 +1,2 @@
 src/glad.c linguist-vendored
+*.ipynb linguist-vendored

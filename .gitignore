@@ -5,3 +5,4 @@
 /CMakeCache.txt
 /.vscode
 /benchmarks/.venv/
+/.DS_Store
