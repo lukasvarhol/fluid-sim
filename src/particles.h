@@ -22,13 +22,13 @@ struct Particles
     void update(float dt, float g_fb_w, float g_fb_h);
 
 private:
-    static constexpr Vec3 GRAVITY{0.0f, -5.0f, 0.0f};
+    static constexpr Vec3 GRAVITY{0.0f, -7.0f, 0.0f};
     static constexpr float MAX_SPEED = 3.5f;
     static constexpr float ENERGY_RETENTION_F = 0.6f;
     static constexpr float MASS = 1.0f;
-    static constexpr float SMOOTHING_RADIUS = 0.08f;
-    static constexpr float TARGET_DENSITY = 85.0f;
-    static constexpr float PRESSURE_MULTIPLIER = 2.6f;
+    static constexpr float SMOOTHING_RADIUS = 0.06f;
+    static constexpr float TARGET_DENSITY = 180.0f;
+    static constexpr float PRESSURE_MULTIPLIER = 0.4f;
     static constexpr float VISCOSITY_COEFFICIENT = 0.005f;
     static constexpr std::array<std::array<int, 2>, 9> cell_offsets = {{
         {-1, -1}, {0, -1}, {1, -1},

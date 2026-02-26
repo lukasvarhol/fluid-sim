@@ -2,10 +2,10 @@
 #include "triangle_mesh.h"
 #include "linear_algebra.h"
 #include "particles.h"
+#include "helpers.h"
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
-std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a);
 void reset(unsigned int radius_px);
 
 static bool g_paused = false;
@@ -14,8 +14,8 @@ static bool g_reset = false;
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 1000;
-const float radius_logical = 4.0f;
+const unsigned int NUM_PARTICLES = 4000;
+const float radius_logical = 3.0f;
 
 Particles particles(NUM_PARTICLES, radius_logical);
 
@@ -80,8 +80,8 @@ int main()
         return -1;
     }
 
-    std::vector<float> background_color = rgba_normalizer(0, 0, 0, 1);
-    glClearColor(background_color[0], background_color[1], background_color[2], background_color[3]);
+    std::array<float, 3> background_color = rgba_normalizer(0, 0, 0);
+    glClearColor(background_color[0], background_color[1], background_color[2], 1.0f);
 
     TriangleMesh *triangle = new TriangleMesh();
 
@@ -119,7 +119,7 @@ int main()
 
         lastTime = now;
 
-        dt_measured = std::min(dt_measured, 1.0f / 30.0f);
+        dt_measured = std::min(dt_measured, 1.0f / 240.0f);
 
         float dt_to_sim = 0.0f;
 
@@ -142,7 +142,7 @@ int main()
         }
 
         static float accumulator = 0.0f;
-        const float FIXED_DT = 1.0f / 280.0f;
+        const float FIXED_DT = 1.0f / 200.0f;
 
         accumulator += dt_to_sim;
 
@@ -248,15 +248,6 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
     }
 
     return shaderModule;
-}
-
-std::vector<float> rgba_normalizer(const int r, const int g, const int b, const int a)
-{
-    return {
-        r / 255.0f,
-        g / 255.0f,
-        b / 255.0f,
-        (float)a};
 }
 
 void reset(unsigned int radius_px)

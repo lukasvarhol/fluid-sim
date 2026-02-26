@@ -13,7 +13,7 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     start_indices.resize(particle_count);
     start_indices.resize(particle_count * 3);
 
-    float particle_spacing = 0.05f;
+    float particle_spacing = 0.02f;
 
     int particles_per_row = (int)std::sqrt(particle_count);
     int particles_per_col = (particle_count - 1) / particles_per_row + 1;
