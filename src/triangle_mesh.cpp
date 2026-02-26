@@ -28,15 +28,49 @@ TriangleMesh::TriangleMesh() {
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementIndices.size() * sizeof(unsigned int), elementIndices.data(), GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
 }
 
-void TriangleMesh::draw() {
+void TriangleMesh::setupInstanceBuffers(int num_particles){
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
+
+    // instance positions
+    glGenBuffers(1, &instancePosVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
+    glBufferData(GL_ARRAY_BUFFER, num_particles * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1,1);
+
+    // instance colors
+    glGenBuffers(1, &instanceColorVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glBufferData(GL_ARRAY_BUFFER, num_particles * 3 *sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+    glVertexAttribDivisor(2, 1);
+
+    glBindVertexArray(0);
+}
+
+void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const std::vector<float>& colors){
+    glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() *sizeof(float), positions.data());
+    
+    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(float), colors.data());
+}
+
+void TriangleMesh::drawInstanced(int num_particles) {
+    glBindVertexArray(VAO);
+    glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0, num_particles);
 }
 
 TriangleMesh::~TriangleMesh() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+    glDeleteBuffers(1, &instancePosVBO);
+    glDeleteBuffers(1, &instanceColorVBO);
 }

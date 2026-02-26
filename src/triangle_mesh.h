@@ -4,10 +4,15 @@
 class TriangleMesh {
 public:
     TriangleMesh();
-    void draw();
     ~TriangleMesh();
+    void setupInstanceBuffers(int num_particles);
+    void updateInstanceData(const std::vector<float>& positioms,
+                            const std::vector<float>& colors);
+    void drawInstanced(int num_particles);
+    
 
 private:
-    unsigned int EBO, VAO, vertexCount;
-    unsigned int VBO;
+    unsigned int VAO, VBO, EBO;
+    unsigned int instancePosVBO, instanceColorVBO;
+    int vertexCount;
 };

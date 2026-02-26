@@ -1,11 +1,8 @@
 #version 330 core
+in vec2 uv;
+in vec3 vColor;
 
 out vec4 screenColor;
-
-in vec2 uv;
-
-uniform float aspect;
-uniform vec4 color;
 
 void main() {
     float d = length(uv) - 0.5; 
@@ -13,6 +10,5 @@ void main() {
     float a = 1.0 - smoothstep(0.0, w, d);
 
     if (a <= 0.0) discard;
-    screenColor = vec4(color.rgb, color.a * a);
-
+    screenColor = vec4(vColor, a);
 }

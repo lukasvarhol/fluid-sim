@@ -14,8 +14,8 @@ static bool g_reset = false;
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 4000;
-const float radius_logical = 3.0f;
+const unsigned int NUM_PARTICLES = 2000;
+const float radius_logical = 2.0f;
 
 Particles particles(NUM_PARTICLES, radius_logical);
 
@@ -57,9 +57,10 @@ int main()
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwSwapInterval(0);
 
     window = glfwCreateWindow(g_fb_w, g_fb_h, "Fluid Sim", NULL, NULL);
     if (!window)
@@ -83,11 +84,12 @@ int main()
     std::array<float, 3> background_color = rgba_normalizer(0, 0, 0);
     glClearColor(background_color[0], background_color[1], background_color[2], 1.0f);
 
-    TriangleMesh *triangle = new TriangleMesh();
+
+    TriangleMesh* triangle = new TriangleMesh();
 
     unsigned int shader = make_shader(
-        "src/shaders/vertex.txt",
-        "src/shaders/fragment.txt");
+        "src/shaders/vertex.glsl",
+        "src/shaders/fragment.glsl");
     glfwSetWindowUserPointer(window, (void *)(uintptr_t)shader);
 
     glEnable(GL_BLEND);
@@ -105,22 +107,19 @@ int main()
 
     reset(radius_px);
 
+    triangle->setupInstanceBuffers(NUM_PARTICLES);
+
     double lastTime = glfwGetTime();
 
-    unsigned int color_location = glGetUniformLocation(shader, "color");
-    unsigned int model_location = glGetUniformLocation(shader, "model");
+    unsigned int scale_location = glGetUniformLocation(shader, "scale");
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-
         double now = glfwGetTime();
         float dt_measured = static_cast<float>(now - lastTime);
-
         lastTime = now;
-
-        dt_measured = std::min(dt_measured, 1.0f / 240.0f);
-
+        dt_measured = std::min(dt_measured, 1.0f / 60.0f);
         float dt_to_sim = 0.0f;
 
         if (g_reset)
@@ -141,47 +140,40 @@ int main()
             g_step_one = false;
         }
 
-        static float accumulator = 0.0f;
-        const float FIXED_DT = 1.0f / 200.0f;
+        const int SUBSTEPS = 4;          // fixed number of steps per frame
+        float sub_dt = dt_to_sim / SUBSTEPS;  // dt shrinks to fit
 
-        accumulator += dt_to_sim;
-
-        while (accumulator >= FIXED_DT)
+        for (int i = 0; i < SUBSTEPS; ++i)
         {
-            particles.update(FIXED_DT, g_fb_w, g_fb_h);
-            accumulator -= FIXED_DT;
+            particles.update(sub_dt, g_fb_w, g_fb_h);
         }
+
+        // Build flat instance arrays
+        std::vector<float> pos_data(NUM_PARTICLES * 2);
+        std::vector<float> color_data(NUM_PARTICLES * 3);
+
+        for (size_t i = 0; i < particles.positions.size(); ++i)
+        {
+            pos_data[2*i]     = particles.positions[i].x;
+            pos_data[2*i + 1] = particles.positions[i].y;
+
+            color_data[3*i]     = particles.colors[i].x;
+            color_data[3*i + 1] = particles.colors[i].y;
+            color_data[3*i + 2] = particles.colors[i].z;
+        }
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(shader);
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;
         float sy = (2.0f * radius_px) / (float)g_fb_h;
+        glUniform2f(scale_location, sx, sy);
 
-        Vec3 quad_scaling = {sx, sy, 1.0f};
-
-        glfwPollEvents();
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(shader);
-        for (size_t i = 0; i < particles.positions.size(); ++i)
-        {
-
-            Mat4 model = Mat4_multiply(
-                create_matrix_transform(particles.positions[i]),
-                create_matrix_scaling(quad_scaling));
-
-            glUniformMatrix4fv(model_location, 1, GL_FALSE, model.entries);
-
-            glUniform4f(
-                color_location,
-                particles.colors[i].x,
-                particles.colors[i].y,
-                particles.colors[i].z,
-                1.0f);
-
-            triangle->draw();
-        }
+        triangle->updateInstanceData(pos_data, color_data);
+        triangle->drawInstanced(particles.positions.size());
 
         glfwSwapBuffers(window);
     }
-
     glDeleteProgram(shader);
     delete triangle;
     glfwTerminate();

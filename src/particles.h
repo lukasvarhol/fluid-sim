@@ -28,7 +28,7 @@ private:
     static constexpr float MASS = 1.0f;
     static constexpr float SMOOTHING_RADIUS = 0.06f;
     static constexpr float TARGET_DENSITY = 180.0f;
-    static constexpr float PRESSURE_MULTIPLIER = 0.4f;
+    static constexpr float PRESSURE_MULTIPLIER = 0.5f;
     static constexpr float VISCOSITY_COEFFICIENT = 0.005f;
     static constexpr std::array<std::array<int, 2>, 9> cell_offsets = {{
         {-1, -1}, {0, -1}, {1, -1},
