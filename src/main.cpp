@@ -11,10 +11,13 @@ void reset(unsigned int radius_px);
 static bool g_paused = false;
 static bool g_step_one = false;
 static bool g_reset = false;
+static bool g_push = false;
+static bool g_pull = false;
+Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 2000;
+const unsigned int NUM_PARTICLES = 1500;
 const float radius_logical = 2.0f;
 
 Particles particles(NUM_PARTICLES, radius_logical);
@@ -35,6 +38,18 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_R)
     {
         g_reset = true;
+    }
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS)   g_pull = true;
+        if (action == GLFW_RELEASE) g_pull = false;
+    }
+    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+        if (action == GLFW_PRESS)   g_push = true;
+        if (action == GLFW_RELEASE) g_push = false;
     }
 }
 
@@ -73,6 +88,7 @@ int main()
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetKeyCallback(window, key_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -140,12 +156,37 @@ int main()
             g_step_one = false;
         }
 
-        const int SUBSTEPS = 4;          // fixed number of steps per frame
-        float sub_dt = dt_to_sim / SUBSTEPS;  // dt shrinks to fit
+        bool interact = false;
+        Vec3 cursor_pos{0.0f,0.0f,0.0f};
+        float interact_radius = 0.4f; 
+        float interact_strength = 0.0f;
 
+        if (g_push || g_pull) {
+            interact = true;
+
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+
+            float x_ndc = (float)((xpos / g_fb_w) * 2.0 - 1.0);
+            float y_ndc = (float)(1.0 - (ypos / g_fb_h) * 2.0);
+
+            cursor_pos = { x_ndc, y_ndc, 0.0f };
+
+            interact_strength = g_pull ? 30.0f : -30.0f;
+        }
+
+
+        const int SUBSTEPS = 4;        
+        float sub_dt = dt_to_sim / SUBSTEPS; 
         for (int i = 0; i < SUBSTEPS; ++i)
         {
-            particles.update(sub_dt, g_fb_w, g_fb_h);
+            particles.update(sub_dt,
+                 g_fb_w,
+                 g_fb_h,
+                 interact,
+                 cursor_pos,
+                 interact_radius,
+                 interact_strength);
         }
 
         // Build flat instance arrays

@@ -19,7 +19,8 @@ struct Particles
     std::unordered_map<unsigned int, unsigned int> start_index_by_hash;
 
     Particles(const unsigned int particle_count, const unsigned int radius_px);
-    void update(float dt, float g_fb_w, float g_fb_h);
+    void update(float dt, float g_fb_w, float g_fb_h, bool interact, Vec3 cursor, float radius, float strength);
+    Vec3 interactionForce(Vec3 mouse_pos, float radius, float strength, int particle_idx);
 
 private:
     static constexpr Vec3 GRAVITY{0.0f, -7.0f, 0.0f};
@@ -54,5 +55,5 @@ private:
     std::array<int, 2> positionToCellCord(Vec3 point);
     unsigned int hashCell(std::array<int, 2> cell);
     unsigned int getKeyFromHash(unsigned int hash);
-    void foreachPointInRadius(Vec3 point, std::vector<int>& out);
+    void foreachPointInRadius(Vec3 point, float radius, std::vector<int>& out);
 };

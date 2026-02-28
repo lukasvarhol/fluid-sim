@@ -30,7 +30,7 @@ Particles::Particles(const unsigned int particle_count, const unsigned int radiu
     }
 }
 
-void Particles::update(float dt, float g_fb_w, float g_fb_h)
+void Particles::update(float dt, float g_fb_w, float g_fb_h, bool interact, Vec3 cursor, float radius, float strength)
 {
     for (size_t i = 0; i < particle_count; ++i) applyGravity(velocities[i], dt);
 
@@ -44,16 +44,18 @@ void Particles::update(float dt, float g_fb_w, float g_fb_h)
     neighbours.reserve(64);
 
     for (size_t i = 0; i < particle_count; ++i) {
-        foreachPointInRadius(predicted_positions[i], neighbours);
+        foreachPointInRadius(predicted_positions[i], SMOOTHING_RADIUS, neighbours);
         densities[i] = calculateDensity(predicted_positions[i], neighbours);
     }
 
     for (size_t i = 0; i < particle_count; ++i) {
-        foreachPointInRadius(positions[i], neighbours);
+        foreachPointInRadius(positions[i], SMOOTHING_RADIUS, neighbours);
         Vec3 pressureForce = calculatePressureForce((int)i, neighbours);
         Vec3 viscosityForce = calculateViscosity((int)i, neighbours);
 
-        Vec3 accel = (pressureForce + viscosityForce) / MASS;
+        Vec3 interact_force{0.0f,0.0f,0.0f};
+        if (interact) interact_force = interactionForce(cursor, radius, strength, (int)i);
+        Vec3 accel = (pressureForce + viscosityForce) / MASS  + interact_force;
         velocities[i] += accel * dt;
         clampVelocity(velocities[i]);
         colors[i] = getColor(velocities[i]);
@@ -265,11 +267,11 @@ unsigned int Particles::getKeyFromHash(unsigned int hash){
     return hash % (unsigned int)start_indices.size(); 
 }
 
-void Particles::foreachPointInRadius(Vec3 point, std::vector<int>& out)
+void Particles::foreachPointInRadius(Vec3 point, float radius, std::vector<int>& out)
 {
     out.clear();
     auto centre = positionToCellCord(point);
-    float radius_sq = SMOOTHING_RADIUS * SMOOTHING_RADIUS;
+    float radius_sq = radius * radius;
 
     for (auto offset : cell_offsets) {
         std::array<int,2> cell = { centre[0] + offset[0], centre[1] + offset[1] };
@@ -282,10 +284,24 @@ void Particles::foreachPointInRadius(Vec3 point, std::vector<int>& out)
             if (spatial_lut[i][0] != hash) break;       
             int particle_index = (int)spatial_lut[i][1];
 
-            Vec3 d = positions[particle_index] - point;
+            Vec3 d = predicted_positions[particle_index] - point;
             float dst_sq = d.x*d.x + d.y*d.y + d.z*d.z;
 
             if (dst_sq <= radius_sq) out.push_back(particle_index);
         }
     }
+}
+
+Vec3 Particles::interactionForce(Vec3 input_pos, float radius, float strength, int particle_idx){
+    Vec3 interaction_force {0.0f, 0.0f, 0.0f};
+    Vec3 offset = input_pos - positions[particle_idx];
+    float dst_sq = offset.dot(offset);
+
+    if (dst_sq < radius * radius){
+        float dst = std::sqrt(dst_sq);
+        Vec3 direction_to_cursor = (dst < 1e-6f) ? Vec3{0.0f, 0.0f, 0.0f} : offset /dst;
+        float centre = 1 - dst / radius;
+        interaction_force += (direction_to_cursor * strength - velocities[particle_idx]) * centre;
+    }
+    return interaction_force;
 }
