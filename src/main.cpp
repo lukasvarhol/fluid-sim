@@ -6,7 +6,7 @@
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
-void reset(unsigned int radius_px);
+//void reset(unsigned int radius_px);
 
 static bool g_paused = false;
 static bool g_step_one = false;
@@ -20,7 +20,7 @@ static int g_fb_h = 480;
 const unsigned int NUM_PARTICLES = 1500;
 const float radius_logical = 2.0f;
 
-Particles particles(NUM_PARTICLES, radius_logical);
+//Particles particles(NUM_PARTICLES, radius_logical);
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
@@ -121,9 +121,9 @@ int main()
 
     float radius_px = radius_logical * xscale;
 
-    reset(radius_px);
+    //reset(radius_px);
 
-    triangle->setupInstanceBuffers(NUM_PARTICLES);
+    //triangle->setupInstanceBuffers(NUM_PARTICLES);
 
     double lastTime = glfwGetTime();
 
@@ -138,13 +138,13 @@ int main()
         dt_measured = std::min(dt_measured, 1.0f / 60.0f);
         float dt_to_sim = 0.0f;
 
-        if (g_reset)
-        {
-            reset(radius_px);
-            g_reset = false;
-            g_paused = false;
-            g_step_one = false;
-        }
+        //if (g_reset)
+        //{
+        //    reset(radius_px);
+        //    g_reset = false;
+        //    g_paused = false;
+        //    g_step_one = false;
+        //}
 
         if (!g_paused)
         {
@@ -180,28 +180,28 @@ int main()
         float sub_dt = dt_to_sim / SUBSTEPS; 
         for (int i = 0; i < SUBSTEPS; ++i)
         {
-            particles.update(sub_dt,
-                 g_fb_w,
-                 g_fb_h,
-                 interact,
-                 cursor_pos,
-                 interact_radius,
-                 interact_strength);
+            //particles.update(sub_dt,
+            //     g_fb_w,
+            //     g_fb_h,
+            //     interact,
+            //     cursor_pos,
+            //     interact_radius,
+            //     interact_strength);
         }
 
-        // Build flat instance arrays
-        std::vector<float> pos_data(NUM_PARTICLES * 2);
-        std::vector<float> color_data(NUM_PARTICLES * 3);
+        //// Build flat instance arrays
+        //std::vector<float> pos_data(NUM_PARTICLES * 2);
+        //std::vector<float> color_data(NUM_PARTICLES * 3);
 
-        for (size_t i = 0; i < particles.positions.size(); ++i)
-        {
-            pos_data[2*i]     = particles.positions[i].x;
-            pos_data[2*i + 1] = particles.positions[i].y;
+        //for (size_t i = 0; i < particles.positions.size(); ++i)
+        //{
+        //    pos_data[2*i]     = particles.positions[i].x;
+        //    pos_data[2*i + 1] = particles.positions[i].y;
 
-            color_data[3*i]     = particles.colors[i].x;
-            color_data[3*i + 1] = particles.colors[i].y;
-            color_data[3*i + 2] = particles.colors[i].z;
-        }
+        //    color_data[3*i]     = particles.colors[i].x;
+        //    color_data[3*i + 1] = particles.colors[i].y;
+        //    color_data[3*i + 2] = particles.colors[i].z;
+        //}
 
         glClear(GL_COLOR_BUFFER_BIT);
         glUseProgram(shader);
@@ -210,8 +210,8 @@ int main()
         float sy = (2.0f * radius_px) / (float)g_fb_h;
         glUniform2f(scale_location, sx, sy);
 
-        triangle->updateInstanceData(pos_data, color_data);
-        triangle->drawInstanced(particles.positions.size());
+        //triangle->updateInstanceData(pos_data, color_data);
+        //triangle->drawInstanced(particles.positions.size());
 
         glfwSwapBuffers(window);
     }
@@ -282,8 +282,8 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
 
     return shaderModule;
 }
-
-void reset(unsigned int radius_px)
-{
-    particles = Particles(NUM_PARTICLES, radius_px);
-}
+//
+//void reset(unsigned int radius_px)
+//{
+//    particles = Particles(NUM_PARTICLES, radius_px);
+//}

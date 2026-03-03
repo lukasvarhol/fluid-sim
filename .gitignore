@@ -4,6 +4,9 @@
 /CMakeFiles
 /CMakeCache.txt
 /.vscode
+/.vs
+/out
+/CMakeSettings.json
 /benchmarks/.venv/
 /.DS_Store
 /docs/.DS_Store
