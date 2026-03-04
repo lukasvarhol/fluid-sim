@@ -19,8 +19,33 @@ struct Mat4 {
     }
 };
 
+struct Vec2 {
+    float x, y;
+
+    float magnitude() const;
+    float dot(const Vec2& other) const; 
+
+    // elementwise
+    Vec2& operator+=(const Vec2& other);
+    Vec2& operator-=(const Vec2& other);
+    Vec2& operator*=(const Vec2& other); 
+    Vec2& operator/=(const Vec2& other);
+
+    Vec2 operator+(const Vec2& other) const;
+    Vec2 operator-(const Vec2& other) const;
+    Vec2 operator*(const Vec2& other) const;
+    Vec2 operator/(const Vec2& other) const;
+
+    // scalar
+    Vec2& operator*=(const float other); 
+    Vec2& operator/=(const float other);
+    Vec2 operator*(const float other) const;
+    Vec2 operator/(const float other) const;
+};
+
+
 struct Vec3 {
-    float x, y ,z;
+    float x, y, z;
 
     float magnitude() const;
     float dot(const Vec3& other) const; 

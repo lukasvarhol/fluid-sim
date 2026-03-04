@@ -1,5 +1,87 @@
 #include "linear_algebra.h"
 
+    float Vec2::magnitude() const{
+        return std::sqrt((*this).dot(*this));
+    }
+
+    float Vec2::dot(const Vec2& other) const{
+        return (x * other.x) + (y * other.y);
+    }
+
+    // elementwise
+    Vec2& Vec2::operator+=(const Vec2& other) {
+		x += other.x;
+        y += other.y;
+        return *this;
+    }
+
+    Vec2& Vec2::operator-=(const Vec2& other) {
+        x -= other.x;
+        y -= other.y;
+        return *this;
+    }
+
+    Vec2& Vec2::operator*=(const Vec2& other) {
+        x *= other.x;
+        y *= other.y;
+        return *this;
+    }
+
+    Vec2& Vec2::operator/=(const Vec2& other) {
+        x /= other.x;
+        y /= other.y;
+        return *this;
+    }
+    
+    Vec2 Vec2::operator+(const Vec2& other) const {
+        Vec2 result = *this;
+        result += other;
+        return result;
+    }
+
+    Vec2 Vec2::operator-(const Vec2& other) const {
+        Vec2 result = *this;
+        result += other;
+        return result;
+    }
+
+    Vec2 Vec2::operator*(const Vec2& other) const {
+        Vec2 result = *this;
+        result += other;
+        return result;
+    }
+
+    Vec2 Vec2::operator/(const Vec2& other) const {
+        Vec2 result = *this;
+        result += other;
+        return result;
+    }
+
+    // scalar
+    Vec2& Vec2::operator*=(const float other) {
+        x *= other;
+        y *= other;
+        return *this;
+    }
+
+    Vec2& Vec2::operator/=(const float other) {
+        y /= other;
+        y /= other;
+        return *this;
+    }
+
+    Vec2 Vec2::operator*(const float other) const {
+        Vec2 result;
+        result *= other;
+        return result;
+    }
+
+    Vec2 Vec2::operator/(const float other) const {
+        Vec2 result;
+        result /= other;
+        return result;
+    }
+
 // elementwise operations
 Vec3& Vec3::operator+=(const Vec3& other){
     x += other.x;
