@@ -5,21 +5,27 @@
 #include "linear_algebra.h"
 #include "helpers.h"
 #include "cell.h"
+#include <algorithm>
 
 struct Particles
 {
-    int num_particles;
+    int nParticles;
     std::vector<Vec2> positions;
+    std::vector<Vec2> predictedPositions;
     std::vector<Vec2> velocities;
     std::vector<float> densities;
     std::vector<Vec3> colors;
-    unsigned int nCols, nRows;
-    std::vector<std::vector<size_t>> flattenedGrid; // store particle indexes
-    Particles(int nParticles, int g_fb_w, int g_fb_h, float smoothingRadius);
+    Particles(int nParticles, float smoothingRadius);
+    void update(float dt);
 
 private:
+    unsigned int nCells1D;
+    float restDensity = 100.0f;
+    Vec2 gravity = Vec2{0.0f, -2.5f};
+    std::vector<std::vector<size_t>> flattenedGrid; // store particle indexes
+
     void initialiseParticles(int nParticles, float spacing);
-    float spikyKernel(float smoothing_radius, float distance); // used for gradient
+    float spikyKernelGrad(float smoothing_radius, float distance); // used for gradient
     float poly6Kernel(float smoothing_radius, float distance); // used for density
     float calculateDistance(Vec2 posA, Vec2 posB);
     float calculateDensity(size_t particleIdx, std::vector<int> neighbours, float smoothingRadius);

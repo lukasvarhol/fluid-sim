@@ -1,17 +1,22 @@
 #include "particles.h"
 #include "colors.h"
 
-Particles::Particles(int nParticles, int g_fb_w, int g_fb_h, float smoothingRadius)
+Particles::Particles(int n, float smoothingRadius)
 {
-    nCols = (int)(g_fb_w / (smoothingRadius * 2.0f));
-    nRows = (int)(g_fb_h / (smoothingRadius * 2.0f));
-    flattenedGrid.reserve(nCols * nRows);
+    // TODO: get rid of viewport dimensions
+    /*   NTC space: -1.0 < x < 1.0 ; -1.0 < y 1.0 
+        (boundary conditions ensure that a particle can never be at value of +/- 1.0f)
+    */
+    nParticles = n;
+    nCells1D = std::ceil( 2.0f / smoothingRadius);
+    flattenedGrid.resize(nCells1D * nCells1D);
     positions.reserve(nParticles);
+    predictedPositions.reserve(nParticles);
     velocities.reserve(nParticles);
     densities.reserve(nParticles);
     colors.reserve(nParticles);
 
-    initialiseParticles(nParticles, 0.02f);
+    initialiseParticles(nParticles, 0.03f);
     updateGrid(nParticles, smoothingRadius);
 }
 
@@ -24,20 +29,31 @@ void Particles::initialiseParticles(int nParticles, float spacing)
     {
         float x = (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
         float y = (i / particlesPerRow - particlesPerCol / 2.0f + 0.5f) * spacing;
-        positions[i] = {x, y};
-        velocities[i] = {0.0f, 0.0f};
-        colors[i] = {0.0f, 0.0f, 1.0f};
-        densities[i] = 0.0f;
+        positions.push_back(Vec2{x, y});
+        predictedPositions.push_back(Vec2{0.0f, 0.0f});
+        velocities.push_back(Vec2{0.0f, 0.0f});
+        colors.push_back(Vec3{1.0f, 1.0f, 1.0f});
+        densities.push_back(0.0f);
+    }
+}
+
+void Particles::update(float dt){
+    //wip
+    for (size_t idx = 0; idx < nParticles; ++idx){
+        Vec2 forces = gravity;
+        velocities[idx] += forces * dt;
+        predictedPositions[idx] = positions[idx] + velocities[idx] * dt;
+        positions[idx] += velocities[idx] * dt;
     }
 }
 
 // use for gradient
-float Particles::spikyKernel(float smoothingRadius, float distance)
+float Particles::spikyKernelGrad(float smoothingRadius, float distance)
 {
     if (distance > smoothingRadius)
         return 0;
-    float influence = 15 / (PI * std::powf(smoothingRadius, 6));
-    return influence * (smoothingRadius - distance) * (smoothingRadius - distance) * (smoothingRadius - distance);
+    float influence = -45.0f / (PI * std::powf(smoothingRadius, 6));
+    return influence * (smoothingRadius - distance) * (smoothingRadius - distance);
 }
 
 // use for densities
@@ -72,8 +88,8 @@ Cell Particles::positionToCoord(Vec2 position, float smoothingRadius)
 {
     Cell cell;
     float spacing = 2.0f * smoothingRadius;
-    cell.x = (int)std::floor(position.x / spacing);
-    cell.y = (int)std::floor(position.y / spacing);
+    cell.x = (int)((position.x + 1.0f) / spacing); 
+    cell.y = (int)((position.y + 1.0f) / spacing); 
     return cell;
 }
 
@@ -86,7 +102,7 @@ std::vector<size_t> Particles::getNeighbours(size_t particleIdx, float smoothing
         for (int offsetY = -1; offsetY <= 1; ++offsetY)
         {
             Cell currentCell = cell + Cell{offsetX, offsetY};
-            size_t gridIdx = currentCell.x * nRows + currentCell.y;
+            size_t gridIdx = (size_t)(currentCell.x * nCells1D) + currentCell.y;
             for (size_t idx : flattenedGrid[gridIdx])
             {
                 neighbours.push_back(idx);
@@ -101,7 +117,12 @@ void Particles::updateGrid(int nParticles, float smoothingRadius)
     for (size_t i = 0; i < positions.size(); ++i)
     {
         Cell coord = positionToCoord(positions[i], smoothingRadius);
-        size_t gridIdx = (size_t)(coord.x * nRows) + coord.y;
+        size_t gridIdx = (size_t)(coord.x * nCells1D) + coord.y;
+        if (gridIdx >= flattenedGrid.size()) {
+            std::cout << "OUT OF BOUNDS\n";
+            continue;
+        }
         flattenedGrid[gridIdx].push_back(i);
     }
 }
+
