@@ -14,9 +14,17 @@ Particles::Particles(int n, float smoothingRadius)
     velocities.reserve(nParticles);
     densities.reserve(nParticles);
     colors.reserve(nParticles);
+    allNeighbours.resize(nParticles);
+    allLambdas.resize(nParticles);
+    deltas.resize(nParticles);
+    oldPositions.resize(nParticles);
 
-    initialiseParticles(nParticles, smoothingRadius * 0.5f);
+    for (auto& nbrs : allNeighbours)
+        nbrs.reserve(64);
+
+    initialiseParticles(nParticles, 0.02f);
     updateGrid(nParticles, smoothingRadius);
+    restDensity = estimateRestDensity(smoothingRadius);
 }
 
 void Particles::initialiseParticles(int nParticles, float spacing)
@@ -34,72 +42,112 @@ void Particles::initialiseParticles(int nParticles, float spacing)
         colors.push_back(Vec3{1.0f, 1.0f, 1.0f});
         densities.push_back(0.0f);
     }
+    
 }
 
 void Particles::update(float dt, float smoothingRadius, const float radiusPx, const float g_fb_w, const float g_fb_h) {
     // steps 1-4: apply forces, predict positions
-    std::vector<Vec2> oldPositions = positions;
+    oldPositions = positions;
     for (size_t i = 0; i < nParticles; ++i) {
         velocities[i] += gravity * dt;
         predictedPositions[i] = positions[i] + velocities[i] * dt;
     }
 
     // steps 5-7: find neighbours
-    for (auto& cell : flattenedGrid) cell.clear();
-    updateGrid(nParticles, smoothingRadius);
-    std::vector<std::vector<size_t>> allNeighbours(nParticles);
-    for (size_t i = 0; i < nParticles; ++i)
-        allNeighbours[i] = getNeighbours(i, smoothingRadius);
+    for (size_t i = 0; i < nParticles; ++i) {
+        allNeighbours[i].clear();
+        deltas[i] = Vec2{ 0.0f, 0.0f };
+    }
 
     // steps 8-19: solver loop
     const int solverIterations = 3;
     for (int iter = 0; iter < solverIterations; ++iter) {
-        // step 10: calculate all lambdas
-        std::vector<float> allLambdas(nParticles);
+        for (auto& cell : flattenedGrid) cell.clear();
+        updateGrid(nParticles, smoothingRadius);
+
+        for (size_t i = 0; i < nParticles; ++i)
+           getNeighbours(i, smoothingRadius, allNeighbours[i]);
+
         for (size_t i = 0; i < nParticles; ++i)
             allLambdas[i] = calculateLambda(i, allNeighbours[i], smoothingRadius);
 
-        // steps 13-18: calculate deltas, handle collisions, update predicted positions
         for (size_t i = 0; i < nParticles; ++i) {
             Vec2 sum = Vec2{ 0.0f, 0.0f };
+
             for (size_t j : allNeighbours[i]) {
                 if (j == i) continue;
-                float lambdaSum = allLambdas[i] + allLambdas[j];
+
+                float corr = scorr(predictedPositions[i], predictedPositions[j], smoothingRadius);
+                float lambdaSum = allLambdas[i] + allLambdas[j] + corr;
                 sum += spikyKernelGradVec(predictedPositions[i], predictedPositions[j], smoothingRadius) * lambdaSum;
             }
+
             Vec2 delta = sum / restDensity;
-            predictedPositions[i] += delta;
-            keepInBoundaries(&predictedPositions[i], &velocities[i], radiusPx, g_fb_w, g_fb_h);
+
+            float mag = delta.magnitude();
+            float maxDelta = smoothingRadius * 0.2f;
+            if (mag > maxDelta)
+                delta = delta * (maxDelta / mag);
+
+            deltas[i] = delta;
+        }
+
+        for (size_t i = 0; i < nParticles; ++i) {
+            predictedPositions[i] += deltas[i];
+            clampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
         }
     }
 
-    // steps 21-23: update velocity and commit positions
     for (size_t i = 0; i < nParticles; ++i) {
-        // velocities[i] = (predictedPositions[i] - oldPositions[i]) / dt;
+        Vec2 advectedPos = oldPositions[i] + velocities[i] * dt;
+        Vec2 correction = predictedPositions[i] - advectedPos;
+        velocities[i] += correction * (0.1f / dt);
         positions[i] = predictedPositions[i];
     }
+
+    std::vector<Vec2> newVelocities = velocities;
+    const float xsphC = 0.05f;
+
+    for (size_t i = 0; i < nParticles; ++i) {
+        Vec2 xsph{ 0.0f, 0.0f };
+        float wSum = 0.0f;
+
+        for (size_t j : allNeighbours[i]) {
+            if (j == i) continue;
+
+            float d = calculateDistance(predictedPositions[i], predictedPositions[j]);
+            float w = poly6Kernel(smoothingRadius, d);
+
+            xsph += (velocities[j] - velocities[i]) * w;
+            wSum += w;
+        }
+
+        if (wSum > 1e-6f)
+            xsph = xsph * (1.0f / wSum);
+
+        Vec2 dv = xsph * xsphC;
+        float maxDv = 0.2f;
+        float mag = dv.magnitude();
+        if (mag > maxDv)
+            dv = dv * (maxDv / mag);
+
+        newVelocities[i] = velocities[i] + dv;
+    }
+    velocities = newVelocities;
+
 }
 
-void Particles::keepInBoundaries(Vec2* pos, Vec2* vel, const float radiusPx, const float g_fb_w, const float g_fb_h) {
+void Particles::clampToBoundaries(Vec2* pos, const float radiusPx, const float g_fb_w, const float g_fb_h) {
     float half[2] = {
         radiusPx / g_fb_w,
         radiusPx / g_fb_h
     };
     float* pos_arr[2] = { &pos->x, &pos->y };
-    float* vel_arr[2] = { &vel->x, &vel->y };
 
     for (int i = 0; i < 2; i++) {
         float lo = -1.0f + half[i];
         float hi = 1.0f - half[i];
-
-        if (*pos_arr[i] <= lo) {
-            *pos_arr[i] = lo;
-            if (*vel_arr[i] < 0) *vel_arr[i] *= -ENERGY_RETENTION_F;
-        }
-        else if (*pos_arr[i] >= hi) {
-            *pos_arr[i] = hi;
-            if (*vel_arr[i] > 0) *vel_arr[i] *= -ENERGY_RETENTION_F;
-        }
+        *pos_arr[i] = std::max(lo, std::min(hi, *pos_arr[i]));
     }
 }
 
@@ -108,13 +156,14 @@ float Particles::spikyKernelGrad(float smoothingRadius, float distance)
 {
     if (distance > smoothingRadius)
         return 0;
-    float influence = -45.0f / (PI * std::powf(smoothingRadius, 6));
+    float influence = -30.0f / (PI * std::powf(smoothingRadius, 5));
     return influence * (smoothingRadius - distance) * (smoothingRadius - distance);
 }
 
 Vec2 Particles::spikyKernelGradVec(Vec2 a, Vec2 b, float smoothingRadius) {
     Vec2 diff = a - b;
     float distance = diff.magnitude();
+    //std::cout << "dist: " << distance << "\n";
     if (distance <= 1e-6f) return Vec2{ 0.0f, 0.0f };
     float scalar = spikyKernelGrad(smoothingRadius, distance);
     Vec2 dir = diff * (1.0f / distance); 
@@ -126,7 +175,7 @@ float Particles::poly6Kernel(float smoothingRadius, float distance)
 {
     if (distance > smoothingRadius)
         return 0;
-    float influence = 315 / (64 * PI * std::powf(smoothingRadius, 9));
+    float influence = 4 / (PI * std::powf(smoothingRadius, 8));
     float sqrDiff = (smoothingRadius * smoothingRadius) - (distance * distance);
     return influence * sqrDiff * sqrDiff * sqrDiff;
 }
@@ -136,14 +185,17 @@ float Particles::calculateDistance(Vec2 posA, Vec2 posB)
     return (posA - posB).magnitude();
 }
 
-float Particles::calculateDensity(size_t particleIdx, std::vector<size_t> neighbours, float smoothingRadius)
+float Particles::calculateDensity(size_t particleIdx, const std::vector<size_t>& neighbours, float smoothingRadius)
 {
-    float density = 0.0f;
-    for (size_t i = 0; i < neighbours.size(); ++i)
+    float density = poly6Kernel(smoothingRadius, 0.0f);
+
+    for (size_t j : neighbours)
     {
-        if (neighbours[i] == particleIdx) continue;
-        density += poly6Kernel(smoothingRadius, calculateDistance(predictedPositions[neighbours[i]], predictedPositions[particleIdx]));
-        // mass neglected as it is just 1.0f
+        if (j == particleIdx) continue;
+        density += poly6Kernel(
+            smoothingRadius,
+            calculateDistance(predictedPositions[j], predictedPositions[particleIdx])
+        );
     }
     return density;
 }
@@ -151,17 +203,23 @@ float Particles::calculateDensity(size_t particleIdx, std::vector<size_t> neighb
 Cell Particles::positionToCoord(Vec2 position, float smoothingRadius)
 {
     Cell cell;
-    float spacing = 2.0f * smoothingRadius;
-    cell.x = (int)((position.x + 1.0f) / smoothingRadius);
-    cell.y = (int)((position.y + 1.0f) / smoothingRadius);
+    int cx = (int)((position.x + 1.0f) / smoothingRadius);
+    int cy = (int)((position.y + 1.0f) / smoothingRadius);
+
+    cx = std::max(0, std::min(nCells1D - 1, cx));
+    cy = std::max(0, std::min(nCells1D - 1, cy));
+
+    cell.x = cx;
+    cell.y = cy;
     return cell;
 }
 
-std::vector<size_t> Particles::getNeighbours(size_t particleIdx, float smoothingRadius)
+void Particles::getNeighbours(size_t particleIdx, float smoothingRadius, std::vector<size_t>& neighbours)
 {
-    std::vector<size_t> neighbours;
+    neighbours.clear();
 
     Cell cell = positionToCoord(predictedPositions[particleIdx], smoothingRadius);
+    float h2 = smoothingRadius * smoothingRadius;
 
     for (int offsetX = -1; offsetX <= 1; ++offsetX)
     {
@@ -178,12 +236,13 @@ std::vector<size_t> Particles::getNeighbours(size_t particleIdx, float smoothing
 
             for (size_t idx : flattenedGrid[gridIdx])
             {
-                neighbours.push_back(idx);
+                Vec2 diff = predictedPositions[idx] - predictedPositions[particleIdx];
+                float d2 = diff.dot(diff);
+                if (d2 <= h2)
+                    neighbours.push_back(idx);
             }
         }
     }
-
-    return neighbours;
 }
 
 void Particles::updateGrid(int nParticles, float smoothingRadius)
@@ -201,8 +260,9 @@ void Particles::updateGrid(int nParticles, float smoothingRadius)
     }
 }
 
-float Particles::calculateLambda(size_t particleIdx, std::vector<size_t> neighbours, float smoothingRadius) {
-    float Ci = (calculateDensity(particleIdx, neighbours, smoothingRadius) / restDensity) - 1.0f;
+float Particles::calculateLambda(size_t particleIdx, const std::vector<size_t>& neighbours, float smoothingRadius) {
+    float density = calculateDensity(particleIdx, neighbours, smoothingRadius);
+    float Ci = (density / restDensity) - 1.0f;
 
     float denominator = 0.0f;
     Vec2 gradI = Vec2{ 0.0f, 0.0f }; // gradient w.r.t. particle i (k=i case)
@@ -216,16 +276,58 @@ float Particles::calculateLambda(size_t particleIdx, std::vector<size_t> neighbo
     }
     denominator += gradI.dot(gradI); // add k=i term
 
-    return -Ci / (denominator + RELAXATION_F);
+    float lambda = -Ci / (denominator + RELAXATION_F);
+
+    //if (particleIdx == 1){
+    //    std::cout << "rho=" << density
+    //        << " C=" << Ci
+    //        << " lambda=" << lambda
+    //        << " neigh=" << neighbours.size() << "\n";
+    //}
+
+    return std::max(-0.5f, std::min(0.5f, lambda));
 }
 
-Vec2 Particles::calculateDeltaPos(size_t particleIdx, float smoothingRadius) {
-    Vec2 sum = Vec2{ 0.0f, 0.0f };
-    std::vector<size_t> neighbours = getNeighbours(particleIdx, smoothingRadius);
-    for (size_t i = 0; i < neighbours.size(); ++i) {
-        std::vector<size_t> neighboursNeighbours = getNeighbours(neighbours[i], smoothingRadius);
-        float lambdaSum = calculateLambda(particleIdx, neighbours, smoothingRadius) + calculateLambda(neighbours[i], neighboursNeighbours, smoothingRadius);
-        sum += spikyKernelGradVec(predictedPositions[particleIdx], predictedPositions[neighbours[i]], smoothingRadius) * lambdaSum;
-    }
-    return sum / restDensity;
+float Particles::estimateRestDensity(float smoothingRadius)
+{
+    size_t center = nParticles / 2;
+    std::vector<size_t> neighbours;
+    neighbours.reserve(64);
+    getNeighbours(center, smoothingRadius, neighbours);
+    return calculateDensity(center, neighbours, smoothingRadius);
+}
+
+float Particles::scorr(Vec2 pi, Vec2 pj, float h) {
+    float q = 0.2f * h;
+    float d = (pi - pj).magnitude();
+
+    float num = poly6Kernel(h, d);
+    float den = poly6Kernel(h, q);
+    if (den <= 1e-8f) return 0.0f;
+
+    float ratio = num / den;
+    float ratio2 = ratio * ratio;
+    float ratio4 = ratio2 * ratio2;
+
+    const float k = 5e-5f;
+    return -k * ratio4;
+}
+
+void Particles::reset(float smoothingRadius)
+{
+    positions.clear();
+    predictedPositions.clear();
+    velocities.clear();
+    densities.clear();
+    colors.clear();
+
+    for (auto& cell : flattenedGrid)
+        cell.clear();
+
+    for (auto& nbrs : allNeighbours)
+        nbrs.clear();
+
+    initialiseParticles(nParticles, 0.02f);
+    updateGrid(nParticles, smoothingRadius);
+    restDensity = estimateRestDensity(smoothingRadius);
 }

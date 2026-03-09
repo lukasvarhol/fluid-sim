@@ -15,27 +15,33 @@ struct Particles
     std::vector<Vec2> velocities;
     std::vector<float> densities;
     std::vector<Vec3> colors;
+    std::vector<std::vector<size_t>> allNeighbours;
+    std::vector<float> allLambdas;
+    std::vector<Vec2> deltas;
+    std::vector<Vec2> oldPositions;
     Particles(int nParticles, float smoothingRadius);
     void update(float dt, float smoothingRadius, const float radiusPx, const float g_fb_w, const float g_fb_h);
+    void reset(float smoothingRadius);
 
 private:
     int nCells1D;
-    const float restDensity = 200.0f;
-    const float ENERGY_RETENTION_F = 0.5f;
-    const float RELAXATION_F = 1.0f;
-    const Vec2 gravity = Vec2{0.0f, -0.1f};
+    float restDensity;
+    const float ENERGY_RETENTION_F = 0.7f;
+    const float RELAXATION_F = 0.1f;
+    const Vec2 gravity = Vec2{0.0f, -2.6f};
     std::vector<std::vector<size_t>> flattenedGrid; // store particle indexes
 
-    void keepInBoundaries(Vec2* pos, Vec2* vel, const float radiusPx, const float g_fb_w, const float g_fb_h);
+    void clampToBoundaries(Vec2* pos, const float radiusPx, const float g_fb_w, const float g_fb_h);
     void initialiseParticles(int nParticles, float spacing);
     float spikyKernelGrad(float smoothing_radius, float distance); // used for gradient
     Vec2 spikyKernelGradVec(Vec2 a, Vec2 b, float smoothingRadius);
     float poly6Kernel(float smoothing_radius, float distance); // used for density
     float calculateDistance(Vec2 posA, Vec2 posB);
-    float calculateDensity(size_t particleIdx, std::vector<size_t> neighbours, float smoothingRadius);
+    float calculateDensity(size_t particleIdx, const std::vector<size_t>& neighbours, float smoothingRadius);
     Cell positionToCoord(Vec2 position, float smoothingRadius);
-    std::vector<size_t> getNeighbours(size_t particleIdx, float smoothingRadius);
+    void getNeighbours(size_t particleIdx, float smoothingRadius, std::vector<size_t>& neighbours);
     void updateGrid(int nParticles, float smoothingRadius);
-    float calculateLambda(size_t particleIdx, std::vector<size_t> neighbours, float smoothingRadius);
-    Vec2 calculateDeltaPos(size_t particleIdx, float smoothingRadius);
+    float calculateLambda(size_t particleIdx, const std::vector<size_t>& neighbours, float smoothingRadius);
+    float estimateRestDensity(float smoothingRadius);
+    float scorr(Vec2 pi, Vec2 pj, float h);
 };
