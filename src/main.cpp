@@ -6,7 +6,7 @@
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
-void reset(Particles& particles);
+//void reset(Particles& particles);
 
 static bool g_paused = false;
 static bool g_step_one = false;
@@ -17,9 +17,9 @@ Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 3;
+const unsigned int NUM_PARTICLES = 200;
 const float radius_logical = 2.0f;
-const float smoothingRadius = 0.1f;
+const float smoothingRadius = 0.15f;
 
 
 
@@ -139,13 +139,13 @@ int main()
         dt_measured = std::min(dt_measured, 1.0f / 60.0f);
         float dt_to_sim = 0.0f;
 
-        if (g_reset)
-        {
-           reset(particles);
-           g_reset = false;
-           g_paused = false;
-           g_step_one = false;
-        }
+        //if (g_reset)
+        //{
+        //   reset(particles);
+        //   g_reset = false;
+        //   g_paused = false;
+        //   g_step_one = false;
+        //}
 
         if (!g_paused)
         {
@@ -177,11 +177,11 @@ int main()
         // }
 
 
-        const int SUBSTEPS = 4;        
+        const int SUBSTEPS = 1;        
         float sub_dt = dt_to_sim / SUBSTEPS; 
         for (int i = 0; i < SUBSTEPS; ++i)
         {
-            particles.update(sub_dt);
+            particles.update(sub_dt, smoothingRadius, radius_px, g_fb_w, g_fb_h);
         }
 
         // Build flat instance arrays
@@ -277,7 +277,7 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
     return shaderModule;
 }
 
-void reset(Particles& particles)
-{
-   particles = Particles(NUM_PARTICLES, smoothingRadius);
-}
+//void reset(Particles& particles)
+//{
+//   particles = Particles(NUM_PARTICLES, smoothingRadius);
+//}

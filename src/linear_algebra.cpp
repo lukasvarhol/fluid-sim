@@ -2,7 +2,7 @@
 
 float Vec2::magnitude() const
 {
-    return std::sqrt((*this).dot(*this));
+    return std::sqrt(dot(*this));
 }
 
 float Vec2::dot(const Vec2 &other) const
@@ -49,14 +49,14 @@ Vec2 Vec2::operator+(const Vec2 &other) const
 Vec2 Vec2::operator-(const Vec2 &other) const
 {
     Vec2 result = *this;
-    result += other;
+    result -= other;
     return result;
 }
 
 Vec2 Vec2::operator*(const Vec2 &other) const
 {
     Vec2 result = *this;
-    result += other;
+    result *= other;
     return result;
 }
 
@@ -77,7 +77,7 @@ Vec2 &Vec2::operator*=(const float other)
 
 Vec2 &Vec2::operator/=(const float other)
 {
-    y /= other;
+    x /= other;
     y /= other;
     return *this;
 }
