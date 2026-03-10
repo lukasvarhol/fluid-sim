@@ -6,7 +6,7 @@
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
-void reset(unsigned int radius_px);
+void reset(Particles& particles);
 
 static bool g_paused = false;
 static bool g_step_one = false;
@@ -17,10 +17,10 @@ Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 1500;
+const unsigned int NUM_PARTICLES = 1000;
 const float radius_logical = 2.0f;
+const float smoothingRadius = 0.06f;
 
-Particles particles(NUM_PARTICLES, radius_logical);
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
@@ -100,6 +100,7 @@ int main()
     std::array<float, 3> background_color = rgba_normalizer(0, 0, 0);
     glClearColor(background_color[0], background_color[1], background_color[2], 1.0f);
 
+    Particles particles(NUM_PARTICLES, smoothingRadius);
 
     TriangleMesh* triangle = new TriangleMesh();
 
@@ -121,8 +122,6 @@ int main()
 
     float radius_px = radius_logical * xscale;
 
-    reset(radius_px);
-
     triangle->setupInstanceBuffers(NUM_PARTICLES);
 
     double lastTime = glfwGetTime();
@@ -131,6 +130,7 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
+        
         glfwPollEvents();
         double now = glfwGetTime();
         float dt_measured = static_cast<float>(now - lastTime);
@@ -140,10 +140,10 @@ int main()
 
         if (g_reset)
         {
-            reset(radius_px);
-            g_reset = false;
-            g_paused = false;
-            g_step_one = false;
+           reset(particles);
+           g_reset = false;
+           g_paused = false;
+           g_step_one = false;
         }
 
         if (!g_paused)
@@ -156,51 +156,45 @@ int main()
             g_step_one = false;
         }
 
-        bool interact = false;
-        Vec3 cursor_pos{0.0f,0.0f,0.0f};
-        float interact_radius = 0.4f; 
-        float interact_strength = 0.0f;
+        // bool interact = false;
+        // Vec3 cursor_pos{0.0f,0.0f,0.0f};
+        // float interact_radius = 0.4f; 
+        // float interact_strength = 0.0f;
 
-        if (g_push || g_pull) {
-            interact = true;
+        // if (g_push || g_pull) {
+        //     interact = true;
 
-            double xpos, ypos;
-            glfwGetCursorPos(window, &xpos, &ypos);
+        //     double xpos, ypos;
+        //     glfwGetCursorPos(window, &xpos, &ypos);
 
-            float x_ndc = (float)((xpos / g_fb_w) * 2.0 - 1.0);
-            float y_ndc = (float)(1.0 - (ypos / g_fb_h) * 2.0);
+        //     float x_ndc = (float)((xpos / g_fb_w) * 2.0 - 1.0);
+        //     float y_ndc = (float)(1.0 - (ypos / g_fb_h) * 2.0);
 
-            cursor_pos = { x_ndc, y_ndc, 0.0f };
+        //     cursor_pos = { x_ndc, y_ndc, 0.0f };
 
-            interact_strength = g_pull ? 30.0f : -30.0f;
-        }
+        //     interact_strength = g_pull ? 30.0f : -30.0f;
+        // }
 
 
-        const int SUBSTEPS = 4;        
+        const int SUBSTEPS = 1;
         float sub_dt = dt_to_sim / SUBSTEPS; 
-        for (int i = 0; i < SUBSTEPS; ++i)
-        {
-            particles.update(sub_dt,
-                 g_fb_w,
-                 g_fb_h,
-                 interact,
-                 cursor_pos,
-                 interact_radius,
-                 interact_strength);
+        if (dt_to_sim > 0) {
+            for (int i = 0; i < SUBSTEPS; ++i) {
+                particles.update(sub_dt, smoothingRadius, radius_px, g_fb_w, g_fb_h);
+            }
         }
 
         // Build flat instance arrays
         std::vector<float> pos_data(NUM_PARTICLES * 2);
         std::vector<float> color_data(NUM_PARTICLES * 3);
-
         for (size_t i = 0; i < particles.positions.size(); ++i)
         {
-            pos_data[2*i]     = particles.positions[i].x;
-            pos_data[2*i + 1] = particles.positions[i].y;
+           pos_data[2*i]     = particles.positions[i].x;
+           pos_data[2*i + 1] = particles.positions[i].y;
 
-            color_data[3*i]     = particles.colors[i].x;
-            color_data[3*i + 1] = particles.colors[i].y;
-            color_data[3*i + 2] = particles.colors[i].z;
+           color_data[3*i]     = particles.colors[i].x;
+           color_data[3*i + 1] = particles.colors[i].y;
+           color_data[3*i + 2] = particles.colors[i].z;
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -283,7 +277,7 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
     return shaderModule;
 }
 
-void reset(unsigned int radius_px)
+void reset(Particles& particles)
 {
-    particles = Particles(NUM_PARTICLES, radius_px);
+    particles.reset(smoothingRadius);
 }
