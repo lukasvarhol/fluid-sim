@@ -19,7 +19,7 @@ static int g_fb_w = 640;
 static int g_fb_h = 480;
 const unsigned int NUM_PARTICLES = 3000;
 const float radius_logical = 2.0f;
-const float smoothingRadius = 0.06f;
+const float smoothingRadius = 0.07f;
 
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -121,6 +121,7 @@ int main()
     glfwGetWindowContentScale(window, &xscale, &yscale);
 
     float radius_px = radius_logical * xscale;
+    reset(particles);
 
     triangle->setupInstanceBuffers(NUM_PARTICLES);
 

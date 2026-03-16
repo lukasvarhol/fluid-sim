@@ -29,6 +29,7 @@ private:
     const float ENERGY_RETENTION_F = 0.7f;
     const float RELAXATION_F = 1000.0f;
     const Vec2 gravity = Vec2{0.0f, -2.6f};
+    const float MAX_SPEED = 3.0f;
     std::vector<std::vector<size_t>> flattenedGrid; // store particle indexes
 
     void clampToBoundaries(Vec2* pos, const float radiusPx, const float g_fb_w, const float g_fb_h);
@@ -43,5 +44,6 @@ private:
     void updateGrid(int nParticles, float smoothingRadius);
     float calculateLambda(size_t particleIdx, const std::vector<size_t>& neighbours, float smoothingRadius);
     float estimateRestDensity(float smoothingRadius);
-    float scorr(Vec2 pi, Vec2 pj, float h);
+    float scorr(Vec2 pi, Vec2 pj, float h); 
+    Vec3 getColor(Vec2& vel);
 };
