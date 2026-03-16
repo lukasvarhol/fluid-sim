@@ -22,7 +22,7 @@ Particles::Particles(int n, float smoothingRadius)
     for (auto& nbrs : allNeighbours)
         nbrs.reserve(64);
 
-    initialiseParticles(nParticles, 0.02f);
+    initialiseParticles(nParticles, 0.018f);
     updateGrid(nParticles, smoothingRadius);
     restDensity = estimateRestDensity(smoothingRadius);
 }
@@ -84,11 +84,6 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx, co
 
             Vec2 delta = sum / restDensity;
 
-            float mag = delta.magnitude();
-            float maxDelta = smoothingRadius * 0.2f;
-            if (mag > maxDelta)
-                delta = delta * (maxDelta / mag);
-
             deltas[i] = delta;
         }
 
@@ -99,14 +94,12 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx, co
     }
 
     for (size_t i = 0; i < nParticles; ++i) {
-        Vec2 advectedPos = oldPositions[i] + velocities[i] * dt;
-        Vec2 correction = predictedPositions[i] - advectedPos;
-        velocities[i] += correction * (0.1f / dt);
+        velocities[i] = (predictedPositions[i] - positions[i]) / dt;
         positions[i] = predictedPositions[i];
     }
 
     std::vector<Vec2> newVelocities = velocities;
-    const float xsphC = 0.05f;
+    const float xsphC = 0.1f;
 
     for (size_t i = 0; i < nParticles; ++i) {
         Vec2 xsph{ 0.0f, 0.0f };
@@ -265,7 +258,7 @@ float Particles::calculateLambda(size_t particleIdx, const std::vector<size_t>& 
     float Ci = (density / restDensity) - 1.0f;
 
     float denominator = 0.0f;
-    Vec2 gradI = Vec2{ 0.0f, 0.0f }; // gradient w.r.t. particle i (k=i case)
+    Vec2 gradI = Vec2{ 0.0f, 0.0f }; 
 
     for (size_t j : neighbours) {
         if (j == particleIdx) continue;
@@ -278,14 +271,7 @@ float Particles::calculateLambda(size_t particleIdx, const std::vector<size_t>& 
 
     float lambda = -Ci / (denominator + RELAXATION_F);
 
-    //if (particleIdx == 1){
-    //    std::cout << "rho=" << density
-    //        << " C=" << Ci
-    //        << " lambda=" << lambda
-    //        << " neigh=" << neighbours.size() << "\n";
-    //}
-
-    return std::max(-0.5f, std::min(0.5f, lambda));
+    return lambda;
 }
 
 float Particles::estimateRestDensity(float smoothingRadius)
@@ -298,6 +284,7 @@ float Particles::estimateRestDensity(float smoothingRadius)
 }
 
 float Particles::scorr(Vec2 pi, Vec2 pj, float h) {
+    // TODO: fix this for NTC space
     float q = 0.2f * h;
     float d = (pi - pj).magnitude();
 
@@ -310,7 +297,7 @@ float Particles::scorr(Vec2 pi, Vec2 pj, float h) {
     float ratio4 = ratio2 * ratio2;
 
     const float k = 5e-5f;
-    return -k * ratio4;
+    return 0.0f;
 }
 
 void Particles::reset(float smoothingRadius)

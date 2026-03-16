@@ -27,7 +27,7 @@ private:
     int nCells1D;
     float restDensity;
     const float ENERGY_RETENTION_F = 0.7f;
-    const float RELAXATION_F = 0.1f;
+    const float RELAXATION_F = 1000.0f;
     const Vec2 gravity = Vec2{0.0f, -2.6f};
     std::vector<std::vector<size_t>> flattenedGrid; // store particle indexes
 
