@@ -8,6 +8,10 @@ Particles::Particles(int n, float smoothingRadius)
     , poly6_norm(4.0f / (PI * h8))
     , spiky_norm(-30.0f / (PI * h5))
 {
+    float dq = 0.15f * smoothingRadius;  // paper recommends 0.1-0.3h
+    float sq = h2 - dq * dq;
+    W_dq = poly6_norm * sq * sq * sq;
+
     nParticles = n;
     nCells1D   = (int)std::ceil(2.0f / smoothingRadius);
 
@@ -24,6 +28,7 @@ Particles::Particles(int n, float smoothingRadius)
     allLambdas.resize(nParticles);
     deltas.resize(nParticles);
     oldPositions.resize(nParticles);
+    vorticity.resize(nParticles, 0.0f);
 
     neighbourData.reserve(nParticles * 64);
     neighbourStart.resize(nParticles + 1, 0);
@@ -232,12 +237,13 @@ void Particles::update(float dt, float smoothingRadius,
                 if (j == i) continue;
 
                 Vec2  diff = pi - predictedPositions[j];
-                float d2   = diff.dot(diff);
+                float d2 = diff.dot(diff);
                 if (d2 < 1e-12f || d2 >= h2) continue;
 
-                float d          = std::sqrt(d2);
-                float s          = spiky_norm * (smoothingRadius - d) * (smoothingRadius - d) / d;
-                float lambdaSum  = allLambdas[i] + allLambdas[j];
+                float d = std::sqrt(d2);
+                float s = spiky_norm * (smoothingRadius - d) * (smoothingRadius - d) / d;
+                float corr = scorr(pi, predictedPositions[j], smoothingRadius);
+                float lambdaSum = allLambdas[i] + allLambdas[j] + corr; 
                 sum += diff * (s * lambdaSum);
             }
             deltas[i] = sum / restDensity;
@@ -259,15 +265,48 @@ void Particles::update(float dt, float smoothingRadius,
         positions[i]  = predictedPositions[i];
     }
 
-    // 5. XSPH velocity smoothing
-    std::vector<Vec2> newVelocities = velocities;
-    const float xsphC = 0.1f;
-    const float maxDv = 0.2f;
+    //// 5. XSPH velocity smoothing
+std::vector<Vec2> newVelocities = velocities;
+const float xsphC = 0.01f;
+const float maxDv = 0.2f;
 
+for (int i = 0; i < nParticles; ++i) {
+    Vec2  xsph = { 0.0f, 0.0f };
+    float wSum = 0.0f;
+
+    for (int k = neighbourStart[i]; k < neighbourStart[i + 1]; ++k) {
+        int j = neighbourData[k];
+        if (j == i) continue;
+
+        Vec2  diff = predictedPositions[i] - predictedPositions[j];
+        float d2 = diff.dot(diff);
+        if (d2 >= h2) continue;
+
+        float sq = h2 - d2;
+        float w = poly6_norm * sq * sq * sq;
+        xsph += (velocities[j] - velocities[i]) * w;
+        wSum += w;
+    }
+
+    if (wSum > 1e-6f)
+        xsph = xsph * (1.0f / wSum);
+
+    Vec2  dv = xsph * xsphC;
+    float mag = dv.magnitude();
+    if (mag > maxDv)
+        dv = dv * (maxDv / mag);
+
+    newVelocities[i] = velocities[i] + dv;
+}
+
+    // vorticity confinement
+    const float vorticityEpsilon = 1000.0f;  // higher = more turbulence
+
+    // pass 1
     for (int i = 0; i < nParticles; ++i)
     {
-        Vec2  xsph = {0.0f, 0.0f};
-        float wSum = 0.0f;
+        float omega = 0.0f;
+        const Vec2& vi = newVelocities[i];
 
         for (int k = neighbourStart[i]; k < neighbourStart[i + 1]; ++k)
         {
@@ -275,27 +314,55 @@ void Particles::update(float dt, float smoothingRadius,
             if (j == i) continue;
 
             Vec2  diff = predictedPositions[i] - predictedPositions[j];
-            float d2   = diff.dot(diff);
-            if (d2 >= h2) continue;
+            float d2 = diff.dot(diff);
+            if (d2 < 1e-12f || d2 >= h2) continue;
 
             float d = std::sqrt(d2);
-            float sq = h2 - d2;
-            float w  = poly6_norm * sq * sq * sq;  // inlined poly6, no powf
+            float s = (smoothingRadius - d) * (smoothingRadius - d) / d;  
+            Vec2  gradW = diff * s;  
 
-            xsph += (velocities[j] - velocities[i]) * w;
-            wSum += w;
+            Vec2 vij = newVelocities[j] - vi;
+            omega += vij.x * gradW.y - vij.y * gradW.x;
+
         }
-
-        if (wSum > 1e-6f)
-            xsph = xsph * (1.0f / wSum);
-
-        Vec2  dv  = xsph * xsphC;
-        float mag = dv.magnitude();
-        if (mag > maxDv)
-            dv = dv * (maxDv / mag);
-
-        newVelocities[i] = velocities[i] + dv;
+        vorticity[i] = omega;
     }
+
+
+
+// pass 2
+for (int i = 0; i < nParticles; ++i)
+{
+    Vec2 eta = { 0.0f, 0.0f };
+
+     for (int k = neighbourStart[i]; k < neighbourStart[i + 1]; ++k)
+    {
+        int j = neighbourData[k];
+        if (j == i) continue;
+
+        Vec2  diff = predictedPositions[i] - predictedPositions[j];
+        float d2 = diff.dot(diff);
+        if (d2 < 1e-12f || d2 >= h2) continue;
+
+        float d     = std::sqrt(d2);
+        float s = (smoothingRadius - d) * (smoothingRadius - d) / d; 
+        Vec2  gradW = diff * s;  
+
+
+        eta += gradW * std::abs(vorticity[j]);
+    }
+
+    float etaMag = eta.magnitude();
+    if (etaMag < 1e-6f) continue;  
+
+
+    Vec2 N = eta * (1.0f / etaMag);
+
+    float omega = vorticity[i];
+    Vec2  f_vorticity = Vec2{ N.y, -N.x } * (omega * vorticityEpsilon);
+    newVelocities[i] += f_vorticity * dt;
+}
+
     velocities = newVelocities;
 }
 
@@ -389,8 +456,19 @@ float Particles::calculateDistance(Vec2 a, Vec2 b)
 
 float Particles::scorr(Vec2 pi, Vec2 pj, float h)
 {
-    // TODO: implement for NDC space
-    return 0.0f;
+    Vec2  diff = pi - pj;
+    float d2 = diff.dot(diff);
+    if (d2 >= h2) return 0.0f;
+
+    float sq = h2 - d2;
+    float W = poly6_norm * sq * sq * sq;
+    float ratio = W / W_dq;
+    float ratio2 = ratio * ratio;
+    float ratio4 = ratio2 * ratio2;
+
+    const float k = 0.00009f;  // small — your density scale is ~3000, not 1
+    const int   n = 4;
+    return -k * ratio4;       // purely repulsive, always negative
 }
 
 // ---------------------------------------------------------------------------
@@ -413,3 +491,4 @@ Vec3 Particles::getColor(Vec2& vel)
     }
     return {1.0f, 1.0f, 1.0f};
 }
+
