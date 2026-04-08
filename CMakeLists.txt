@@ -20,28 +20,26 @@ target_include_directories(fluid_core PUBLIC
 )
 
 # ---- App ----
-find_package(glfw3 CONFIG REQUIRED)
-find_package(OpenGL REQUIRED)
+if (NOT BUILD_BENCHMARKS)
+  find_package(glfw3 CONFIG REQUIRED)
+  find_package(OpenGL REQUIRED)
 
-add_executable(fluid-sim
-  src/main.cpp
-  src/glad.c
-  src/triangle_mesh.cpp
-  # headers do not need to be listed, optional:
-  # src/config.h
-  # src/helpers.h
- "src/cell.h" "src/cell.cpp")
-
-target_include_directories(fluid-sim PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_link_libraries(fluid-sim PRIVATE
-  fluid_core
-  glfw
-  OpenGL::GL
-)
+  add_executable(fluid-sim
+    src/main.cpp
+    src/glad.c
+    src/triangle_mesh.cpp
+    "src/cell.h" "src/cell.cpp"
+  )
+  target_include_directories(fluid-sim PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  )
+  target_link_libraries(fluid-sim PRIVATE
+    fluid_core
+    glfw
+    OpenGL::GL
+  )
+endif()
 
 # ---- Google Benchmark ----
 # ---- Google Benchmark ----

@@ -17,7 +17,7 @@ Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 3000;
+const unsigned int NUM_PARTICLES = 5000;
 const float radius_logical = 2.0f;
 const float smoothingRadius = 0.07f;
 
