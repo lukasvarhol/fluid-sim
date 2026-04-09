@@ -18,7 +18,7 @@ Particles::Particles(int n, float smoothingRadius)
     , poly6_norm(4.0f / (PI * h8))
     , spiky_norm(-30.0f / (PI * h5))
 {
-    float dq = 0.15f * smoothingRadius;  // paper recommends 0.1-0.3h
+    float dq = 0.14f * smoothingRadius;  // paper recommends 0.1-0.3h
     float sq = h2 - dq * dq;
     W_dq = poly6_norm * sq * sq * sq;
     skinRadius = 0.3f * smoothingRadius;  // tune this
@@ -61,7 +61,7 @@ void Particles::initialiseParticles(int n, float spacing)
 
     for (int i = 0; i < n; ++i)
     {
-        float x = (i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing;
+        float x = ((i % particlesPerRow - particlesPerRow / 2.0f + 0.5f) * spacing) - 0.3f;
         float y = (i / particlesPerRow - particlesPerCol / 2.0f + 0.5f) * spacing;
         positions.push_back(Vec2{x, y});
         predictedPositions.push_back(Vec2{x, y});
@@ -206,7 +206,7 @@ void Particles::update(float dt, float smoothingRadius,
     auto t1 = clk::now();
 
     // 3. solver
-    const int solverIterations = 5;
+    const int solverIterations = 4;
     for (int iter = 0; iter < solverIterations; ++iter)
     {
         // lambda
@@ -263,7 +263,7 @@ void Particles::update(float dt, float smoothingRadius,
 
     //// 5. XSPH velocity smoothing
 std::vector<Vec2> newVelocities = velocities;
-const float xsphC = 0.03f;
+const float xsphC = 0.01f;
 const float maxDv = 0.2f;
 
 std::for_each(std::execution::par_unseq,
@@ -429,7 +429,7 @@ void Particles::reset(float smoothingRadius)
     std::fill(gridCount.begin(),      gridCount.end(),      0);
     std::fill(neighbourCount.begin(), neighbourCount.end(), 0);
 
-    initialiseParticles(nParticles, 0.015f);
+    initialiseParticles(nParticles, 0.014f);
     buildGrid(smoothingRadius);
     buildNeighbours(smoothingRadius);
     restDensity = estimateRestDensity(smoothingRadius);
@@ -475,7 +475,7 @@ float Particles::scorr(Vec2 pi, Vec2 pj, float h)
     float ratio2 = ratio * ratio;
     float ratio4 = ratio2 * ratio2;
 
-    const float k = 0.00009f;  // small — your density scale is ~3000, not 1
+    const float k = 0.00004f;  // small — your density scale is ~3000, not 1
     const int   n = 4;
     return -k * ratio4;       // purely repulsive, always negative
 }

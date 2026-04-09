@@ -23,7 +23,7 @@ struct Particles
     std::vector<float> vorticity;
     std::vector<float> omegaMag;  
 
-    static constexpr int MAX_NEIGHBOURS = 64;
+    static constexpr int MAX_NEIGHBOURS = 256;
     std::vector<int> neighbourData;   // size nParticles * MAX_NEIGHBOURS
     std::vector<int> neighbourCount;  // size nParticles 
     std::vector<int> indices;
@@ -41,10 +41,10 @@ private:
     int   nCells1D;
     float restDensity;
 
-    const float RELAXATION_F      = 20000.0f;
+    const float RELAXATION_F      = 15000.0f;
     const float ENERGY_RETENTION_F = 0.7f;
     const float MAX_SPEED          = 3.0f;
-    const Vec2  gravity            = Vec2{0.0f, -2.6f};
+    const Vec2  gravity            = Vec2{-0.0f, -2.6f};
 
     std::vector<int> gridData;   
     std::vector<int> gridStart;  
