@@ -12,7 +12,7 @@ add_library(
   src/particles.cpp
   src/linear_algebra.cpp
   src/colors.h
- "src/cell.h" "src/cell.cpp")
+ "src/cell.h" "src/cell.cpp" "src/particle_config.h")
 
 target_include_directories(fluid_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -29,7 +29,7 @@ if (NOT BUILD_BENCHMARKS)
     src/glad.c
     src/triangle_mesh.cpp
     "src/cell.h" "src/cell.cpp"
-  )
+   "src/particle_config.h")
   target_include_directories(fluid-sim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
     ${CMAKE_CURRENT_SOURCE_DIR}/src

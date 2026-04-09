@@ -13,14 +13,9 @@ static bool g_step_one = false;
 static bool g_reset = false;
 static bool g_push = false;
 static bool g_pull = false;
-Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 7000;
-const float radius_logical = 2.0f;
-const float smoothingRadius = 0.05f;
-
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
@@ -157,32 +152,25 @@ int main()
             g_step_one = false;
         }
 
-        // bool interact = false;
-        // Vec3 cursor_pos{0.0f,0.0f,0.0f};
-        // float interact_radius = 0.4f; 
-        // float interact_strength = 0.0f;
+        Vec2 mousePos = { 0.0f, 0.0f };
+        float mouseStrength = 0.0f;
 
-        // if (g_push || g_pull) {
-        //     interact = true;
+        if (g_push || g_pull) {
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            int winW, winH;
+            glfwGetWindowSize(window, &winW, &winH);
 
-        //     double xpos, ypos;
-        //     glfwGetCursorPos(window, &xpos, &ypos);
+            float x_ndc = (float)((xpos / winW) * 2.0 - 1.0);
+            float y_ndc = (float)(1.0 - (ypos / winH) * 2.0);
 
-        //     float x_ndc = (float)((xpos / g_fb_w) * 2.0 - 1.0);
-        //     float y_ndc = (float)(1.0 - (ypos / g_fb_h) * 2.0);
+            mousePos = { x_ndc, y_ndc };
+            mouseStrength = g_pull ? PULL_STREN : PUSH_STREN;
+        }
 
-        //     cursor_pos = { x_ndc, y_ndc, 0.0f };
-
-        //     interact_strength = g_pull ? 30.0f : -30.0f;
-        // }
-
-
-        const int SUBSTEPS = 1;
-        float sub_dt = dt_to_sim / SUBSTEPS; 
         if (dt_to_sim > 0) {
-            for (int i = 0; i < SUBSTEPS; ++i) {
-                particles.update(sub_dt, smoothingRadius, radius_px, g_fb_w, g_fb_h);
-            }
+            particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w, g_fb_h, mousePos, mouseStrength);
+            
         }
 
         // Build flat instance arrays
