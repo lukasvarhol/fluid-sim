@@ -17,9 +17,9 @@ Vec3 interaction_force {0.0f, 0.0f, 0.0f};
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
-const unsigned int NUM_PARTICLES = 2000;
+const unsigned int NUM_PARTICLES = 6000;
 const float radius_logical = 2.0f;
-const float smoothingRadius = 0.07f;
+const float smoothingRadius = 0.05f;
 
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)

@@ -8,6 +8,7 @@
 #include "cell.h"
 #include <algorithm>
 
+
 struct Particles
 {
     int nParticles;
@@ -22,9 +23,13 @@ struct Particles
     std::vector<float> vorticity;
     std::vector<float> omegaMag;  
 
-    std::vector<int> neighbourData;   
-    std::vector<int> neighbourStart;  
-    std::vector<int> neighbourCount;  
+    static constexpr int MAX_NEIGHBOURS = 64;
+    std::vector<int> neighbourData;   // size nParticles * MAX_NEIGHBOURS
+    std::vector<int> neighbourCount;  // size nParticles 
+    std::vector<int> indices;
+    std::vector<Vec2> positionsAtLastBuild;
+    float skinRadius;
+    bool needsRebuild = true;
 
     float h2, h5, h8, poly6_norm, spiky_norm, W_dq;
 
@@ -36,7 +41,7 @@ private:
     int   nCells1D;
     float restDensity;
 
-    const float RELAXATION_F      = 600.0f;
+    const float RELAXATION_F      = 20000.0f;
     const float ENERGY_RETENTION_F = 0.7f;
     const float MAX_SPEED          = 3.0f;
     const Vec2  gravity            = Vec2{0.0f, -2.6f};
@@ -59,4 +64,5 @@ private:
     float estimateRestDensity(float smoothingRadius);
     float scorr(Vec2 pi, Vec2 pj, float h);
     Vec3  getColor(Vec2& vel);
+    bool needsNeighbourRebuild();
 };
