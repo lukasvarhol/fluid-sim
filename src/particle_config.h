@@ -22,7 +22,7 @@ const float RELAXATION_F = 15000.0f;
 const float ENERGY_RETENTION_F = 0.7f;		// amount of energy retained after colliding with an object (wall, etc.)
 const float MAX_SPEED = 3.0f;				// value to which speed is clamped
 const Vec2  gravity = Vec2{ -0.0f, -3.0f };	// gravity (arbitrary value chosen which looks somewhat realistic)
-const float k = 0.000005f;					// scorr coefficient. (Lower = more instability, less damping)
+const float k = 0.000006f;					// scorr coefficient. (Lower = more instability, less damping)
 const int NUM_ITERATIONS = 4;               // number of times to run constraints solver (Lower = greater instability, greater performance)
 
 // viscocity

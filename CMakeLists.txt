@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(fluid-sim VERSION 0.1.0 LANGUAGES CXX C)
 
 option(BUILD_BENCHMARKS "Build Google Benchmark targets" OFF)
@@ -12,15 +12,28 @@ add_library(
   src/particles.cpp
   src/linear_algebra.cpp
   src/colors.h
- "src/cell.h" "src/cell.cpp" "src/particle_config.h")
+  src/cell.h
+  src/cell.cpp
+  src/particle_config.h
+)
 
 target_include_directories(fluid_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
 )
 
+# TBB — used on platforms where std::execution::par_unseq is unavailable (e.g. Mac)
+find_package(TBB QUIET)
+if(TBB_FOUND)
+  message(STATUS "TBB found — using parallel TBB backend")
+  target_link_libraries(fluid_core PRIVATE TBB::tbb)
+  target_compile_definitions(fluid_core PRIVATE USE_TBB)
+else()
+  message(STATUS "TBB not found — using std::execution backend")
+endif()
+
 # ---- App ----
-if (NOT BUILD_BENCHMARKS)
+if(NOT BUILD_BENCHMARKS)
   find_package(glfw3 CONFIG REQUIRED)
   find_package(OpenGL REQUIRED)
 
@@ -28,12 +41,16 @@ if (NOT BUILD_BENCHMARKS)
     src/main.cpp
     src/glad.c
     src/triangle_mesh.cpp
-    "src/cell.h" "src/cell.cpp"
-   "src/particle_config.h")
+    src/cell.h
+    src/cell.cpp
+    src/particle_config.h
+  )
+
   target_include_directories(fluid-sim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
     ${CMAKE_CURRENT_SOURCE_DIR}/src
   )
+
   target_link_libraries(fluid-sim PRIVATE
     fluid_core
     glfw
@@ -42,9 +59,7 @@ if (NOT BUILD_BENCHMARKS)
 endif()
 
 # ---- Google Benchmark ----
-# ---- Google Benchmark ----
-if (BUILD_BENCHMARKS)
-
+if(BUILD_BENCHMARKS)
   include(FetchContent)
   set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 
@@ -64,9 +79,13 @@ if (BUILD_BENCHMARKS)
     benchmark::benchmark
   )
 
-  find_package(Threads QUIET)
-  if (Threads_FOUND)
-    target_link_libraries(fluid-sim-bench PRIVATE Threads::Threads)
+  if(TBB_FOUND)
+    target_link_libraries(fluid-sim-bench PRIVATE TBB::tbb)
+    target_compile_definitions(fluid-sim-bench PRIVATE USE_TBB)
   endif()
 
+  find_package(Threads QUIET)
+  if(Threads_FOUND)
+    target_link_libraries(fluid-sim-bench PRIVATE Threads::Threads)
+  endif()
 endif()

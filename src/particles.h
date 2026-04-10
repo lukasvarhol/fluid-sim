@@ -6,8 +6,15 @@
 #include "linear_algebra.h"
 #include "helpers.h"
 #include "cell.h"
-#include <algorithm>
 #include "particle_config.h"
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#else
+#include <execution>
+#endif
+#include <algorithm>
+
 
 struct Particles
 {
