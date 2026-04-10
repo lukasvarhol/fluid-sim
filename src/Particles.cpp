@@ -1,25 +1,7 @@
 #include "particles.h"
 #include "colors.h"
 
-#include <execution>
-#include <numeric>
-
 #include <chrono>
-
-template<typename F>
-void parallelFor(int n, F&& func) {
-#ifdef USE_TBB
-    tbb::parallel_for(tbb::blocked_range<int>(0, n),
-        [&](const tbb::blocked_range<int>& range) {
-            for (int i = range.begin(); i < range.end(); ++i)
-                func(i);
-        });
-#else
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
-        [&](int i) { func(i); });
-#endif
-}
 
 using clk = std::chrono::high_resolution_clock;
 
@@ -208,7 +190,8 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
 
     // 1. apply gravity, predict positions
     oldPositions = positions;
-    parallelFor(nParticles, [&](int i) {
+    for (int i = 0; i < nParticles; ++i)
+    {
         velocities[i] += gravity * dt;
 
         if (mouseStrength != 0.0f) {
@@ -222,7 +205,7 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
             }
         }
         predictedPositions[i]  = positions[i] + velocities[i] * dt;
-    });
+    }
 
     // 2. build grid and neighbour list once
 
