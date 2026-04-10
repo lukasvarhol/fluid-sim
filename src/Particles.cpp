@@ -1,10 +1,8 @@
 #include "particles.h"
 #include "colors.h"
 
-#include <execution>
-#include <numeric>
-
 #include <chrono>
+
 using clk = std::chrono::high_resolution_clock;
 
 auto us = [](auto a, auto b) {
@@ -117,9 +115,7 @@ void Particles::buildGrid(float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::buildNeighbours(float smoothingRadius)
 {
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
-        [&](int i) {
+        parallelFor(nParticles, [&](int i) {
             int count = 0;
             int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
             Cell cell = positionToCoord(predictedPositions[i], smoothingRadius);
@@ -224,16 +220,12 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
     for (int iter = 0; iter < solverIterations; ++iter)
     {
         // lambda
-        std::for_each(std::execution::par_unseq,
-            indices.begin(), indices.end(),
-            [&](int i) {
+        parallelFor(nParticles, [&](int i) {
                 allLambdas[i] = calculateLambda(i, smoothingRadius);
             });
 
         // delta
-        std::for_each(std::execution::par_unseq,
-            indices.begin(), indices.end(),
-            [&](int i) {
+        parallelFor(nParticles, [&](int i) {
             Vec2 sum = {0.0f, 0.0f};
             const Vec2& pi = predictedPositions[i];
 
@@ -257,9 +249,7 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
             });
 
         // apply deltas
-        std::for_each(std::execution::par_unseq,
-            indices.begin(), indices.end(),
-            [&](int i) {
+        parallelFor(nParticles, [&](int i) {
             predictedPositions[i] += deltas[i];
             clampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
             });
@@ -267,9 +257,7 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
 
 
     // 4. update velocities and positions
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
-        [&](int i) {
+    parallelFor(nParticles, [&](int i) {
         velocities[i] = (predictedPositions[i] - positions[i]) / dt;
         colors[i] = getColor(velocities[i]);
         positions[i]  = predictedPositions[i];
@@ -278,9 +266,7 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
     //// 5. XSPH velocity smoothing
 std::vector<Vec2> newVelocities = velocities;
 
-std::for_each(std::execution::par_unseq,
-    indices.begin(), indices.end(),
-    [&](int i) {
+parallelFor(nParticles, [&](int i) {
     Vec2 xsph = { 0.0f, 0.0f };
     float wSum = 0.0f;
 
@@ -312,9 +298,7 @@ std::for_each(std::execution::par_unseq,
     });
 
     // pass 1
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
-        [&](int i) {
+    parallelFor(nParticles, [&](int i) {
             float omega = 0.0f;
             const Vec2& vi = newVelocities[i];
 
@@ -339,9 +323,7 @@ std::for_each(std::execution::par_unseq,
         });
 
 // pass 2
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
-        [&](int i) {
+    parallelFor(nParticles, [&](int i) {
             Vec2 eta = { 0.0f, 0.0f };
 
             int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];

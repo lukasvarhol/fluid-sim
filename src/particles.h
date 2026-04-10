@@ -6,11 +6,34 @@
 #include "linear_algebra.h"
 #include "helpers.h"
 #include "cell.h"
-#include <algorithm>
+#include <numeric>
 #include "particle_config.h"
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#else
+#include <execution>
+#endif
+#include <algorithm>
+
 
 struct Particles
 {
+    template<typename F>
+void parallelFor(int n, F&& func) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, n),
+        [&](const tbb::blocked_range<int>& range) {
+            for (int i = range.begin(); i < range.end(); ++i)
+                func(i);
+        });
+#else
+    std::for_each(std::execution::par_unseq,
+        indices.begin(), indices.end(),
+        [&](int i) { func(i); });
+#endif
+}
+
     int nParticles;
     std::vector<Vec2>  positions;
     std::vector<Vec2>  predictedPositions;
