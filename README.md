@@ -85,5 +85,5 @@ Unix:
 
 ## References
 
-Macklin, M. & Müller, M. (2013). *Position Based Fluids*. ACM Transactions on Graphics, 32(4).
-Green, S. (2010). Particle Simulation using CUDA. NVIDIA Developer Technical Report.
+- Macklin, M. & Müller, M. (2013). *Position Based Fluids*. ACM Transactions on Graphics, 32(4).
+- Green, S. (2010). Particle Simulation using CUDA. NVIDIA Developer Technical Report.
