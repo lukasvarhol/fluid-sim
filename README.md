@@ -56,12 +56,47 @@ benchmarks/
 ---
 
 ## Building
+### Linux
+##### Depedencies
+```bash
+sudo apt-get install build-essential libglfw3-dev libgl1-mesa-dev
+```
 
-### Application
+##### Configure and build
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target fluid-sim
 ```
+
+##### Run
+```bash
+./build/fluid-sim
+```
+
+### Windows
+##### Dependencies
+Install vcpkg if you don't already have it:
+```bash
+cd C:\
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg install glfw3
+.\vcpkg integrate install
+```
+
+##### Configure and build
+```
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
+```
+
+##### Run
+```
+.\build\Release\fluid-sim.exe
+```
+
+---
 
 ### Benchmarks
 Windows:
