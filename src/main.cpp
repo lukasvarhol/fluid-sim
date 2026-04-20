@@ -6,13 +6,14 @@
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
-void reset(Particles& particles);
+void reset(Particles &particles);
 
-static bool g_paused = false;
+static bool g_paused = true;
 static bool g_step_one = false;
 static bool g_reset = false;
 static bool g_push = false;
 static bool g_pull = false;
+static bool show_hud = false;
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
@@ -34,17 +35,30 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     {
         g_reset = true;
     }
+    if (key == GLFW_KEY_ESCAPE)
+        show_hud = !show_hud;
 }
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        if (action == GLFW_PRESS)   g_pull = true;
-        if (action == GLFW_RELEASE) g_pull = false;
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods); // feed ImGui first
+
+    if (ImGui::GetIO().WantCaptureMouse)
+        return;
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if (action == GLFW_PRESS)
+            g_pull = true;
+        if (action == GLFW_RELEASE)
+            g_pull = false;
     }
-    if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        if (action == GLFW_PRESS)   g_push = true;
-        if (action == GLFW_RELEASE) g_push = false;
+    if (button == GLFW_MOUSE_BUTTON_RIGHT)
+    {
+        if (action == GLFW_PRESS)
+            g_push = true;
+        if (action == GLFW_RELEASE)
+            g_push = false;
     }
 }
 
@@ -55,8 +69,45 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
+static void glfw_error_callback(int error, const char *description)
+{
+    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+
 int main()
 {
+    glfwSetErrorCallback(glfw_error_callback);
+    if (!glfwInit())
+        return 1;
+
+    // Decide GL+GLSL versions
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+    // GL ES 2.0 + GLSL 100 (WebGL 1.0)
+    const char *glsl_version = "#version 100";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(IMGUI_IMPL_OPENGL_ES3)
+    // GL ES 3.0 + GLSL 300 es (WebGL 2.0)
+    const char *glsl_version = "#version 300 es";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+#elif defined(__APPLE__)
+    // GL 3.2 + GLSL 150
+    const char *glsl_version = "#version 150";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
+#else
+    // GL 3.0 + GLSL 130
+    const char *glsl_version = "#version 130";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+#endif
 
     GLFWwindow *window;
 
@@ -81,6 +132,19 @@ int main()
     }
     glfwMakeContextCurrent(window);
 
+    // ImGui_ImplGlfw_InitForOpenGL(window, false); // don't auto-install
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
+    ImGui_ImplOpenGL3_Init();
+
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -97,7 +161,7 @@ int main()
 
     Particles particles(NUM_PARTICLES, smoothingRadius);
 
-    TriangleMesh* triangle = new TriangleMesh();
+    TriangleMesh *triangle = new TriangleMesh();
 
     unsigned int shader = make_shader(
         "src/shaders/vertex.glsl",
@@ -115,19 +179,88 @@ int main()
     float xscale, yscale;
     glfwGetWindowContentScale(window, &xscale, &yscale);
 
-    float radius_px = radius_logical * xscale;
+    float radius_px;
     reset(particles);
 
-    triangle->setupInstanceBuffers(NUM_PARTICLES);
+    triangle->setupInstanceBuffers(15000); //TODO: refactor out
 
     double lastTime = glfwGetTime();
 
     unsigned int scale_location = glGetUniformLocation(shader, "scale");
 
+    unsigned int min_val = 1000;
+    unsigned int max_val = 10000;
+    unsigned int my_val = 5000;
+
     while (!glfwWindowShouldClose(window))
     {
-        
+
         glfwPollEvents();
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        if (show_hud)
+        {
+            ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+            ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+            ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                                     ImGuiWindowFlags_NoResize |
+                                     ImGuiWindowFlags_NoScrollbar |
+	                             ImGuiWindowFlags_NoBackground |
+	                             ImGuiWindowFlags_AlwaysAutoResize;
+            ImGui::Begin("##hud", nullptr, flags);
+
+            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+            if (ImGui::CollapsingHeader("Appearance")) {
+              if (g_paused) {
+		bool changed = false;
+		int nPending = particles.nParticles;
+		changed |= ImGui::SliderInt("Particles", &nPending, 1000, 15000);
+		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.02f);
+		changed |= ImGui::SliderFloat("Offset X",  &INIT_OFFSET_X, -0.5f, 0.5f);
+		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
+
+		if (changed)
+		  particles.resizeParticles(nPending, smoothingRadius,
+                                  INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y);
+	      } else {
+                int nDisplay = particles.nParticles;
+                ImGui::BeginDisabled();
+                ImGui::SliderInt("Particles", &nDisplay, 1000, 15000);
+		ImGui::SliderFloat("Pos X", &INIT_OFFSET_X, -1.0f, 1.0f);
+                ImGui::SliderFloat("Pos Y", &INIT_OFFSET_Y, -1.0f, 1.0f);
+	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.01f, 0.02f);
+                ImGui::EndDisabled();
+              }
+              
+		  
+              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 10.0f);
+            }
+
+            if (ImGui::CollapsingHeader("Physics")) {
+	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 0.10f);
+              ImGui::SliderFloat("Relaxation Factor", &RELAXATION_F, 1000.0f, 50000.0f);
+              ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
+              ImGui::SliderFloat("Scorr Coefficient", &k, 0.000001f, 0.00005f);
+              ImGui::SliderFloat("Viscosity", &xsphC, 0.01f, 1.0f);
+              ImGui::SliderFloat("Vorticity", &vorticityEpsilon, 0.0f, 20000.0f);
+	      ImGui::SliderInt("Solvert Iterations", &NUM_ITERATIONS, 1, 20);
+            }
+            
+            if (ImGui::CollapsingHeader("Mouse")) {
+              ImGui::SliderFloat("Push Strength", &PUSH_STREN, -100.0f, 0.0f);
+              ImGui::SliderFloat("Pull Strength", &PULL_STREN, 0.0, 100.0f);
+              ImGui::SliderFloat("Push Radius", &PUSH_RAD, 0.0f, 1.0f);
+              ImGui::SliderFloat("Pull Radius", &PULL_RAD, 0.0f, 1.0f); 
+            }
+
+            ImGui::End();
+        }
+
+        radius_px = radius_logical * xscale;
+
         double now = glfwGetTime();
         float dt_measured = static_cast<float>(now - lastTime);
         lastTime = now;
@@ -136,10 +269,10 @@ int main()
 
         if (g_reset)
         {
-           reset(particles);
-           g_reset = false;
-           g_paused = false;
-           g_step_one = false;
+            reset(particles);
+            g_reset = false;
+            g_paused = false;
+            g_step_one = false;
         }
 
         if (!g_paused)
@@ -152,10 +285,11 @@ int main()
             g_step_one = false;
         }
 
-        Vec2 mousePos = { 0.0f, 0.0f };
+        Vec2 mousePos = {0.0f, 0.0f};
         float mouseStrength = 0.0f;
 
-        if (g_push || g_pull) {
+        if (g_push || g_pull)
+        {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
             int winW, winH;
@@ -164,26 +298,28 @@ int main()
             float x_ndc = (float)((xpos / winW) * 2.0 - 1.0);
             float y_ndc = (float)(1.0 - (ypos / winH) * 2.0);
 
-            mousePos = { x_ndc, y_ndc };
+            mousePos = {x_ndc, y_ndc};
             mouseStrength = g_pull ? PULL_STREN : PUSH_STREN;
         }
 
-        if (dt_to_sim > 0) {
-            particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w, g_fb_h, mousePos, mouseStrength);
-            
+        if (dt_to_sim > 0)
+        {
+          particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w,
+                           g_fb_h, mousePos, mouseStrength);
         }
 
         // Build flat instance arrays
-        std::vector<float> pos_data(NUM_PARTICLES * 2);
-        std::vector<float> color_data(NUM_PARTICLES * 3);
-        for (size_t i = 0; i < particles.positions.size(); ++i)
+	int n = particles.nParticles;
+        std::vector<float> pos_data(n * 2);
+        std::vector<float> color_data(n * 3);
+        for (size_t i = 0; i < n; ++i)
         {
-           pos_data[2*i]     = particles.positions[i].x;
-           pos_data[2*i + 1] = particles.positions[i].y;
+            pos_data[2 * i] = particles.positions[i].x;
+            pos_data[2 * i + 1] = particles.positions[i].y;
 
-           color_data[3*i]     = particles.colors[i].x;
-           color_data[3*i + 1] = particles.colors[i].y;
-           color_data[3*i + 2] = particles.colors[i].z;
+            color_data[3 * i] = particles.colors[i].x;
+            color_data[3 * i + 1] = particles.colors[i].y;
+            color_data[3 * i + 2] = particles.colors[i].z;
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -194,12 +330,19 @@ int main()
         glUniform2f(scale_location, sx, sy);
 
         triangle->updateInstanceData(pos_data, color_data);
-        triangle->drawInstanced(particles.positions.size());
+        triangle->drawInstanced((int)particles.positions.size());
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
     }
     glDeleteProgram(shader);
     delete triangle;
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     glfwTerminate();
     return 0;
 }
@@ -266,7 +409,7 @@ unsigned int make_module(const std::string &filepath, unsigned int module_type)
     return shaderModule;
 }
 
-void reset(Particles& particles)
+void reset(Particles &particles)
 {
     particles.reset(smoothingRadius);
 }

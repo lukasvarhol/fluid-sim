@@ -10,5 +10,6 @@ void main() {
     float a = 1.0 - smoothstep(0.0, w, d);
 
     if (a <= 0.0) discard;
-    screenColor = vec4(vColor, a);
+    
+    screenColor = vec4(vColor,a);
 }

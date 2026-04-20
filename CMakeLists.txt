@@ -15,11 +15,24 @@ add_library(
   src/cell.h
   src/cell.cpp
   src/particle_config.h
+  src/particle_config.cpp
+  dependencies/imgui/imgui.cpp
+  dependencies/imgui/imgui_demo.cpp
+  dependencies/imgui/imgui_draw.cpp
+  dependencies/imgui/imgui_tables.cpp
+  dependencies/imgui/imgui_widgets.cpp
+  dependencies/imgui/imgui_impl_glfw.cpp
+  dependencies/imgui/imgui_impl_opengl3.cpp
+  dependencies/imgui/imstb_rectpack.h
+  dependencies/imgui/imstb_textedit.h
+  dependencies/imgui/imstb_truetype.h
 )
 
 target_include_directories(fluid_core PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/dependencies
+  ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/imgui
+  ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/imgui/backends
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # TBB — used on platforms where std::execution::par_unseq is unavailable (e.g. Mac)
@@ -44,6 +57,7 @@ if(NOT BUILD_BENCHMARKS)
     src/cell.h
     src/cell.cpp
     src/particle_config.h
+    src/particle_config.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE
