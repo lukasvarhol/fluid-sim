@@ -63,7 +63,7 @@ Vec2 Vec2::operator*(const Vec2 &other) const
 Vec2 Vec2::operator/(const Vec2 &other) const
 {
     Vec2 result = *this;
-    result += other;
+    result /= other;
     return result;
 }
 

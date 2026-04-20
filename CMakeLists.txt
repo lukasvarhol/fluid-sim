@@ -15,6 +15,7 @@ add_library(
   src/cell.h
   src/cell.cpp
   src/particle_config.h
+  src/particle_config.cpp
   dependencies/imgui/imgui.cpp
   dependencies/imgui/imgui_demo.cpp
   dependencies/imgui/imgui_draw.cpp
@@ -56,6 +57,7 @@ if(NOT BUILD_BENCHMARKS)
     src/cell.h
     src/cell.cpp
     src/particle_config.h
+    src/particle_config.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE

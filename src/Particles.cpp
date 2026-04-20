@@ -179,10 +179,9 @@ float Particles::calculateLambda(size_t i, float smoothingRadius)
     float Ci = (density / restDensity) - 1.0f;
     return -Ci / (denominator + RELAXATION_F);
 }
-
 // ---------------------------------------------------------------------------
-void Particles::update(float dt, float smoothingRadius, const float radiusPx,
-    const float g_fb_w, const float g_fb_h,
+void Particles::update(float dt, float smoothingRadius, float radiusPx,
+    const int g_fb_w, const int g_fb_h,
     Vec2 mousePos, float mouseStrength)
 {
     const float mouseRadius = mouseStrength < 0.0f? PUSH_RAD : PULL_RAD;
@@ -192,7 +191,9 @@ void Particles::update(float dt, float smoothingRadius, const float radiusPx,
     oldPositions = positions;
     for (int i = 0; i < nParticles; ++i)
     {
-        velocities[i] += gravity * dt;
+      
+      velocities[i] += Vec2{0.0f, gravity} * dt;
+
 
         if (mouseStrength != 0.0f) {
             Vec2 diff = mousePos - positions[i];
@@ -359,10 +360,10 @@ parallelFor(nParticles, [&](int i) {
 }
 
 // ---------------------------------------------------------------------------
-void Particles::clampToBoundaries(Vec2* pos, const float radiusPx,
-                                   const float g_fb_w, const float g_fb_h)
+void Particles::clampToBoundaries(Vec2* pos, float radiusPx,
+                                   const int g_fb_w, const int g_fb_h)
 {
-    float half[2] = {radiusPx / g_fb_w, radiusPx / g_fb_h};
+  float half[2] = {radiusPx / (float)g_fb_w, radiusPx / (float)g_fb_h};
     float* arr[2] = {&pos->x, &pos->y};
 
     for (int i = 0; i < 2; ++i)
@@ -493,4 +494,39 @@ bool Particles::needsNeighbourRebuild() {
             return true;
     }
     return false;
+}
+
+void Particles::resizeParticles(int nNewParticles, float fSmoothingRadius, float spacing, float ox, float oy) {
+  INIT_OFFSET_X = ox;
+  INIT_OFFSET_Y = oy;
+  INIT_SPACING = spacing;
+ 
+  nParticles = nNewParticles;
+
+  positions.clear();
+  predictedPositions.clear();
+  velocities.clear();
+  densities.clear();
+  colors.clear();
+
+  positions.reserve(nNewParticles);
+  predictedPositions.reserve(nNewParticles);
+  velocities.reserve(nNewParticles);
+  densities.reserve(nNewParticles);
+  colors.reserve(nNewParticles);
+
+  allLambdas.resize(nNewParticles);
+  deltas.resize(nNewParticles);
+  oldPositions.resize(nNewParticles);
+  vorticity.resize(nNewParticles, 0.0f);
+  neighbourData.resize(nNewParticles * MAX_NEIGHBOURS);
+  neighbourCount.resize(nNewParticles, 0);
+  indices.resize(nNewParticles);
+  std::iota(indices.begin(), indices.end(), 0);
+
+  initialiseParticles(nNewParticles, INIT_SPACING);
+  buildGrid(fSmoothingRadius);
+  buildNeighbours(fSmoothingRadius);
+  positionsAtLastBuild = predictedPositions;
+  restDensity = estimateRestDensity(fSmoothingRadius);
 }

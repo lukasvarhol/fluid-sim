@@ -182,7 +182,7 @@ int main()
     float radius_px;
     reset(particles);
 
-    triangle->setupInstanceBuffers(NUM_PARTICLES);
+    triangle->setupInstanceBuffers(15000); //TODO: refactor out
 
     double lastTime = glfwGetTime();
 
@@ -204,40 +204,57 @@ int main()
         {
             ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
             ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
-            ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_AlwaysAutoResize;
+            ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                                     ImGuiWindowFlags_NoResize |
+                                     ImGuiWindowFlags_NoScrollbar |
+	                             ImGuiWindowFlags_NoBackground |
+	                             ImGuiWindowFlags_AlwaysAutoResize;
             ImGui::Begin("##hud", nullptr, flags);
 
             ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-            
-            if (ImGui::CollapsingHeader("Appearance")){
-                ImGui::SliderScalar("Particle Count", ImGuiDataType_U32, &NUM_PARTICLES, &min_val, &max_val);
-                // ImGui::InputText("My Input", buf, sizeof(buf));
-                if (ImGui::IsItemDeactivatedAfterEdit())
-                {
-                    delete triangle;
-                    triangle = new TriangleMesh();
-                    particles = Particles(NUM_PARTICLES, smoothingRadius);
-                    triangle->setupInstanceBuffers(NUM_PARTICLES);
-                    reset(particles);
-                }
 
-                ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 10.0f);
+            if (ImGui::CollapsingHeader("Appearance")) {
+              if (g_paused) {
+		bool changed = false;
+		int nPending = particles.nParticles;
+		changed |= ImGui::SliderInt("Particles", &nPending, 1000, 15000);
+		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.02f);
+		changed |= ImGui::SliderFloat("Offset X",  &INIT_OFFSET_X, -0.5f, 0.5f);
+		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
+
+		if (changed)
+		  particles.resizeParticles(nPending, smoothingRadius,
+                                  INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y);
+	      } else {
+                int nDisplay = particles.nParticles;
+                ImGui::BeginDisabled();
+                ImGui::SliderInt("Particles", &nDisplay, 1000, 15000);
+		ImGui::SliderFloat("Pos X", &INIT_OFFSET_X, -1.0f, 1.0f);
+                ImGui::SliderFloat("Pos Y", &INIT_OFFSET_Y, -1.0f, 1.0f);
+	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.01f, 0.02f);
+                ImGui::EndDisabled();
+              }
+              
+		  
+              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 10.0f);
             }
-            
-            if (ImGui::CollapsingHeader("Physics")){
-                
+
+            if (ImGui::CollapsingHeader("Physics")) {
+	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 0.10f);
+              ImGui::SliderFloat("Relaxation Factor", &RELAXATION_F, 1000.0f, 50000.0f);
+              ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
+              ImGui::SliderFloat("Scorr Coefficient", &k, 0.000001f, 0.00005f);
+              ImGui::SliderFloat("Viscosity", &xsphC, 0.01f, 1.0f);
+              ImGui::SliderFloat("Vorticity", &vorticityEpsilon, 0.0f, 20000.0f);
+	      ImGui::SliderInt("Solvert Iterations", &NUM_ITERATIONS, 1, 20);
             }
             
             if (ImGui::CollapsingHeader("Mouse")) {
-                ImGui::SliderFloat("Push Strength", &PUSH_STREN, -100.0f, 0.0f);
-                ImGui::SliderFloat("Pull Strength", &PULL_STREN, 0.0, 100.0f);
-                ImGui::SliderFloat("Push Radius", &PUSH_RAD, 0.0f, 1.0f);
-                ImGui::SliderFloat("Pull Radius", &PULL_RAD, 0.0f, 1.0f); 
+              ImGui::SliderFloat("Push Strength", &PUSH_STREN, -100.0f, 0.0f);
+              ImGui::SliderFloat("Pull Strength", &PULL_STREN, 0.0, 100.0f);
+              ImGui::SliderFloat("Push Radius", &PUSH_RAD, 0.0f, 1.0f);
+              ImGui::SliderFloat("Pull Radius", &PULL_RAD, 0.0f, 1.0f); 
             }
-
-
-            
-
 
             ImGui::End();
         }
@@ -287,13 +304,15 @@ int main()
 
         if (dt_to_sim > 0)
         {
-            particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w, g_fb_h, mousePos, mouseStrength);
+          particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w,
+                           g_fb_h, mousePos, mouseStrength);
         }
 
         // Build flat instance arrays
-        std::vector<float> pos_data(NUM_PARTICLES * 2);
-        std::vector<float> color_data(NUM_PARTICLES * 3);
-        for (size_t i = 0; i < particles.positions.size(); ++i)
+	int n = particles.nParticles;
+        std::vector<float> pos_data(n * 2);
+        std::vector<float> color_data(n * 3);
+        for (size_t i = 0; i < n; ++i)
         {
             pos_data[2 * i] = particles.positions[i].x;
             pos_data[2 * i + 1] = particles.positions[i].y;
@@ -311,7 +330,7 @@ int main()
         glUniform2f(scale_location, sx, sy);
 
         triangle->updateInstanceData(pos_data, color_data);
-        triangle->drawInstanced(particles.positions.size());
+        triangle->drawInstanced((int)particles.positions.size());
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
