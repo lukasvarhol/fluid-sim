@@ -54,6 +54,7 @@ if(NOT BUILD_BENCHMARKS)
     src/main.cpp
     src/glad.c
     src/triangle_mesh.cpp
+    src/grid.cpp
     src/cell.h
     src/cell.cpp
     src/particle_config.h

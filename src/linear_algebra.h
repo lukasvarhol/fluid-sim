@@ -68,7 +68,13 @@ struct Vec3 {
     Vec3 operator/(const float other) const;
 };
 
+Vec3 normalize(const Vec3& v);
+Vec3 cross(const Vec3& a, const Vec3& b);
+
 Mat4 create_matrix_transform(const Vec3& translation);
 Mat4 create_matrix_scaling(const Vec3 &scaling);
+Mat4 lookAt(const Vec3 &eye, const Vec3 &centre, const Vec3 &up_);
+Mat4 perspective(float fovY_rad, float aspect, float near, float far);
+Mat4 inverse_view(const Mat4& m);
 Mat4 Mat4_multiply(Mat4 a, Mat4 b);
 Vec3 lerp(const Vec3& a, const Vec3& b, float s);

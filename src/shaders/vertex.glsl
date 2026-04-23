@@ -1,20 +1,20 @@
 #version 330 core
 
 layout (location=0) in vec3 vertexPos;
-layout (location=1) in vec2 instancePos;
+layout (location=1) in vec3 instancePos;
 layout (location=2) in vec3 instanceColor;
 
 out vec3 vColor;
 out vec2 uv;
 
-uniform vec2 scale;
-uniform mat3 worldRot;
+uniform mat4 projection;
+uniform mat4 view;
+uniform float radius;
 
 void main(){
-    vec3 rotated = worldRot * vec3(instancePos, 1.0);
-    vec2 scaled = vertexPos.xy * scale;
-    
-    gl_Position = vec4(scaled + rotated.xy, 0.0, 1.0);
-    uv = vertexPos.xy;
-    vColor = instanceColor;
+  vec4 viewPos = view * vec4(instancePos, 1.0);
+  viewPos.xy += vertexPos.xy * radius;
+  gl_Position = projection * viewPos;
+  uv = vertexPos.xy;
+  vColor = instanceColor;
 }
