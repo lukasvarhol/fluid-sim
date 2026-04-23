@@ -22,27 +22,24 @@ struct Mat4 {
 struct Vec2 {
     float x, y;
 
-    float magnitude() const;
-    float dot(const Vec2& other) const; 
+    [[nodiscard]] float magnitude() const { return std::sqrt(x*x + y*y); }
+    [[nodiscard]] float dot(const Vec2& o) const { return x*o.x + y*o.y; }
 
-    // elementwise
-    Vec2& operator+=(const Vec2& other);
-    Vec2& operator-=(const Vec2& other);
-    Vec2& operator*=(const Vec2& other); 
-    Vec2& operator/=(const Vec2& other);
+    Vec2& operator+=(const Vec2& o) { x+=o.x; y+=o.y; return *this; }
+    Vec2& operator-=(const Vec2& o) { x-=o.x; y-=o.y; return *this; }
+    Vec2& operator*=(const Vec2& o) { x*=o.x; y*=o.y; return *this; }
+    Vec2& operator/=(const Vec2& o) { x/=o.x; y/=o.y; return *this; }
 
-    Vec2 operator+(const Vec2& other) const;
-    Vec2 operator-(const Vec2& other) const;
-    Vec2 operator*(const Vec2& other) const;
-    Vec2 operator/(const Vec2& other) const;
+    [[nodiscard]] Vec2 operator+(const Vec2& o) const { return {x+o.x, y+o.y}; }
+    [[nodiscard]] Vec2 operator-(const Vec2& o) const { return {x-o.x, y-o.y}; }
+    [[nodiscard]] Vec2 operator*(const Vec2& o) const { return {x*o.x, y*o.y}; }
+    [[nodiscard]] Vec2 operator/(const Vec2& o) const { return {x/o.x, y/o.y}; }
 
-    // scalar
-    Vec2& operator*=(const float other); 
-    Vec2& operator/=(const float other);
-    Vec2 operator*(const float other) const;
-    Vec2 operator/(const float other) const;
+    Vec2& operator*=(float s) { x*=s; y*=s; return *this; }
+    Vec2& operator/=(float s) { float r=1.f/s; x*=r; y*=r; return *this; }
+    [[nodiscard]] Vec2 operator*(float s) const { return {x*s, y*s}; }
+    [[nodiscard]] Vec2 operator/(float s) const { float r=1.f/s; return {x*r, y*r}; }
 };
-
 
 struct Vec3 {
     float x, y, z;
