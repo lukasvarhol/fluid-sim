@@ -50,8 +50,6 @@ void TriangleMesh::setupInstanceBuffers(int num_particles){
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
-
-    glBindVertexArray(0);
 }
 
 void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const std::vector<float>& colors){
@@ -59,7 +57,8 @@ void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const
     glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() *sizeof(float), positions.data());
     
     glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(float), colors.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(float),
+                    colors.data());
 }
 
 void TriangleMesh::drawInstanced(int num_particles) {

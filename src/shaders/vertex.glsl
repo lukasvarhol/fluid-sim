@@ -8,10 +8,13 @@ out vec3 vColor;
 out vec2 uv;
 
 uniform vec2 scale;
+uniform mat3 worldRot;
 
 void main(){
+    vec3 rotated = worldRot * vec3(instancePos, 1.0);
     vec2 scaled = vertexPos.xy * scale;
-    gl_Position = vec4(scaled + instancePos, 0.0, 1.0);
+    
+    gl_Position = vec4(scaled + rotated.xy, 0.0, 1.0);
     uv = vertexPos.xy;
     vColor = instanceColor;
 }

@@ -312,6 +312,7 @@ int main()
 	int n = particles.nParticles;
         std::vector<float> pos_data(n * 2);
         std::vector<float> color_data(n * 3);
+	std::vector<float> angle_data(n);
         for (size_t i = 0; i < n; ++i)
         {
             pos_data[2 * i] = particles.positions[i].x;
@@ -320,6 +321,7 @@ int main()
             color_data[3 * i] = particles.colors[i].x;
             color_data[3 * i + 1] = particles.colors[i].y;
             color_data[3 * i + 2] = particles.colors[i].z;
+
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -328,6 +330,16 @@ int main()
         float sx = (2.0f * radius_px) / (float)g_fb_w;
         float sy = (2.0f * radius_px) / (float)g_fb_h;
         glUniform2f(scale_location, sx, sy);
+
+	float angle = 10.0f * glfwGetTime() * PI / 180.0f;
+	float c = cos(angle), s = sin(angle);
+	float rot[9] = {
+	  c,  s, 0,
+	  -s,  c, 0,
+	  0,  0, 1
+	};
+	int loc = glGetUniformLocation(shader, "worldRot");
+	glUniformMatrix3fv(loc, 1, GL_TRUE, rot);
 
         triangle->updateInstanceData(pos_data, color_data);
         triangle->drawInstanced((int)particles.positions.size());

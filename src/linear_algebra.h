@@ -69,6 +69,6 @@ struct Vec3 {
 };
 
 Mat4 create_matrix_transform(const Vec3& translation);
-Mat4 create_matrix_scaling(const Vec3& scaling);
+Mat4 create_matrix_scaling(const Vec3 &scaling);
 Mat4 Mat4_multiply(Mat4 a, Mat4 b);
 Vec3 lerp(const Vec3& a, const Vec3& b, float s);

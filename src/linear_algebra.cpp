@@ -209,6 +209,7 @@ Mat4 create_matrix_transform(const Vec3 &translation)
     return matrix;
 }
 
+
 Mat4 create_matrix_scaling(const Vec3 &scaling)
 {
     Mat4 matrix = Mat4::identity();
