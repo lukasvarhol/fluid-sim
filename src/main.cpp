@@ -217,8 +217,8 @@ int main()
               if (g_paused) {
 		bool changed = false;
 		int nPending = particles.nParticles;
-		changed |= ImGui::SliderInt("Particles", &nPending, 1000, 15000);
-		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.02f);
+		changed |= ImGui::SliderInt("Particles", &nPending, 10, 30000);
+		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.2f);
 		changed |= ImGui::SliderFloat("Offset X",  &INIT_OFFSET_X, -0.5f, 0.5f);
 		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
 
@@ -231,12 +231,12 @@ int main()
                 ImGui::SliderInt("Particles", &nDisplay, 1000, 15000);
 		ImGui::SliderFloat("Pos X", &INIT_OFFSET_X, -1.0f, 1.0f);
                 ImGui::SliderFloat("Pos Y", &INIT_OFFSET_Y, -1.0f, 1.0f);
-	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.01f, 0.02f);
+	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.001f, 0.1f);
                 ImGui::EndDisabled();
               }
               
 		  
-              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 10.0f);
+              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 50.0f);
             }
 
             if (ImGui::CollapsingHeader("Physics")) {
@@ -334,12 +334,14 @@ int main()
 	float angle = 10.0f * glfwGetTime() * PI / 180.0f;
 	float c = cos(angle), s = sin(angle);
 	float rot[9] = {
-	  c,  s, 0,
-	  -s,  c, 0,
-	  0,  0, 1
+	  c,  0, s,
+	  0,  1, 0,
+	  -s,  0, c
 	};
 	int loc = glGetUniformLocation(shader, "worldRot");
-	glUniformMatrix3fv(loc, 1, GL_TRUE, rot);
+        glUniformMatrix3fv(loc, 1, GL_TRUE, rot);
+
+	glUniform3f(glGetUniformLocation(shader, "lightDir"), 0.6f, 0.8f, 1.0f);
 
         triangle->updateInstanceData(pos_data, color_data);
         triangle->drawInstanced((int)particles.positions.size());

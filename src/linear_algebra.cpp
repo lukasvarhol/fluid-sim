@@ -221,6 +221,8 @@ Mat4 create_matrix_scaling(const Vec3 &scaling)
     return matrix;
 }
 
+Mat
+
 Mat4 Mat4_multiply(Mat4 a, Mat4 b)
 {
     Mat4 result;
