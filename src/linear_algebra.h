@@ -42,27 +42,25 @@ struct Vec2 {
 };
 
 struct Vec3 {
-    float x, y, z;
+  float x, y, z;
 
-    float magnitude() const;
-    float dot(const Vec3& other) const; 
+  [[nodiscard]] float magnitude() const { return std::sqrt(x*x + y*y + z*z); }
+  [[nodiscard]] float dot(const Vec3& o) const { return x*o.x + y*o.y + z*o.z; }
 
-    // elementwise
-    Vec3& operator+=(const Vec3& other);
-    Vec3& operator-=(const Vec3& other);
-    Vec3& operator*=(const Vec3& other); 
-    Vec3& operator/=(const Vec3& other);
+  Vec3& operator+=(const Vec3& o) { x+=o.x; y+=o.y; z+=o.z; return *this; }
+  Vec3& operator-=(const Vec3& o) { x-=o.x; y-=o.y; z+=o.z; return *this; }
+  Vec3& operator*=(const Vec3& o) { x*=o.x; y*=o.y; z+=o.z; return *this; }
+  Vec3& operator/=(const Vec3& o) { x/=o.x; y/=o.y; z+=o.z; return *this; }
 
-    Vec3 operator+(const Vec3& other) const;
-    Vec3 operator-(const Vec3& other) const;
-    Vec3 operator*(const Vec3& other) const;
-    Vec3 operator/(const Vec3& other) const;
+  [[nodiscard]] Vec3 operator+(const Vec3& o) const { return {x+o.x, y+o.y, z+o.z}; }
+  [[nodiscard]] Vec3 operator-(const Vec3& o) const { return {x-o.x, y-o.y, z-o.z}; }
+  [[nodiscard]] Vec3 operator*(const Vec3& o) const { return {x*o.x, y*o.y, z*o.z}; }
+  [[nodiscard]] Vec3 operator/(const Vec3& o) const { return {x/o.x, y/o.y, z/o.y}; }
 
-    // scalar
-    Vec3& operator*=(const float other); 
-    Vec3& operator/=(const float other);
-    Vec3 operator*(const float other) const;
-    Vec3 operator/(const float other) const;
+  Vec3& operator*=(float s) { x*=s; y*=s; z*=s; return *this; }
+  Vec3& operator/=(float s) { float r=1.f/s; x*=r; y*=r; z*=r; return *this; }
+  [[nodiscard]] Vec3 operator*(float s) const { return {x*s, y*s, z*s}; }
+  [[nodiscard]] Vec3 operator/(float s) const { float r = 1.f / s; return {x * r, y * r, z * r}; }
 };
 
 Vec3 normalize(const Vec3& v);

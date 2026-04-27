@@ -223,7 +223,7 @@ int main()
     float radius_px;
     reset(particles);
 
-    triangle->setupInstanceBuffers(30000); //TODO: refactor out
+    triangle->setupInstanceBuffers(60000); //TODO: refactor out
 
     double lastTime = glfwGetTime();
 
@@ -258,7 +258,7 @@ int main()
               if (g_paused) {
 		bool changed = false;
 		int nPending = particles.nParticles;
-		changed |= ImGui::SliderInt("Particles", &nPending, 10, 30000);
+		changed |= ImGui::SliderInt("Particles", &nPending, 10, 60000);
 		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.2f);
 		changed |= ImGui::SliderFloat("Offset X",  &INIT_OFFSET_X, -0.5f, 0.5f);
 		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
@@ -269,7 +269,7 @@ int main()
 	      } else {
                 int nDisplay = particles.nParticles;
                 ImGui::BeginDisabled();
-                ImGui::SliderInt("Particles", &nDisplay, 1000, 30000);
+                ImGui::SliderInt("Particles", &nDisplay, 1000, 60000);
 		ImGui::SliderFloat("Pos X", &INIT_OFFSET_X, -1.0f, 1.0f);
                 ImGui::SliderFloat("Pos Y", &INIT_OFFSET_Y, -1.0f, 1.0f);
 	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.001f, 0.1f);
