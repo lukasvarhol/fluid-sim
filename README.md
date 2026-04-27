@@ -1,6 +1,6 @@
 # 3D Fluid Simulation (C++/OpenGL)
 
-![demo](docs/assets/demo.gif)
+![demo-3d](docs/assets/demo.gif)
 
 ---
 
