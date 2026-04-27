@@ -3,7 +3,8 @@
 Cell &Cell::operator+=(const Cell &other)
 {
 	x += other.x;
-	y += other.y;
+        y += other.y;
+	z += other.z;
 	return *this;
 }
 

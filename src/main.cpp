@@ -32,7 +32,7 @@ static float g_radius = 3.0f;
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
     g_radius -= (float)yoffset * 0.2f;
-    g_radius = std::max(0.1f, g_radius); // don't go through the scene
+    g_radius = std::max(0.001f, g_radius); // don't go through the scene
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -207,7 +207,7 @@ int main()
     
     unsigned int grid_shader = make_shader("src/shaders/grid_vertex.glsl",
 					   "src/shaders/grid_fragment.glsl");
-    Grid *grid = new Grid(20, 0.1f, -1.0f); // 20 cells each side, 0.1 spacing
+    Grid *grid = new Grid(150, 0.15f, -1.0f); // 20 cells each side, 0.1 spacing
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -264,8 +264,8 @@ int main()
 		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
 
 		if (changed)
-		  particles.resizeParticles(nPending, smoothingRadius,
-                                  INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y);
+		  particles.resizeParticles(nPending, smoothingRadius, 
+					    INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y, INIT_OFFSET_Z);
 	      } else {
                 int nDisplay = particles.nParticles;
                 ImGui::BeginDisabled();
@@ -281,7 +281,7 @@ int main()
             }
 
             if (ImGui::CollapsingHeader("Physics")) {
-	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 0.10f);
+	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 1.0f);
               ImGui::SliderFloat("Relaxation Factor", &RELAXATION_F, 1000.0f, 50000.0f);
               ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
               ImGui::SliderFloat("Scorr Coefficient", &k, 0.000001f, 0.00005f);
@@ -328,7 +328,8 @@ int main()
             g_step_one = false;
         }
 
-        Vec2 mousePos = {0.0f, 0.0f};
+        Vec3 mouseRayOrigin = {0.0f, 0.0f, 0.0f};
+	Vec3 mouseRayDir = {0.0f, 0.0f, 0.0f};
         float mouseStrength = 0.0f;
 
 	float camX = g_panX + g_radius * cos(g_elevation) * sin(g_azimuth);
@@ -360,11 +361,19 @@ int main()
 	    // transform ray to world space using inverse view
 	  Mat4 invView = inverse_view(view);
 
-	  Vec3 ray_world = {
-	    invView.entries[0]*ray_view.x + invView.entries[4]*ray_view.y + invView.entries[8]*ray_view.z,
-	    invView.entries[1]*ray_view.x + invView.entries[5]*ray_view.y + invView.entries[9]*ray_view.z,
-	    invView.entries[2]*ray_view.x + invView.entries[6]*ray_view.y + invView.entries[10]*ray_view.z,
-	  };
+          Vec3 ray_world = {
+              invView.entries[0] * ray_view.x +
+                  invView.entries[4] * ray_view.y +
+                  invView.entries[8] * ray_view.z,
+              invView.entries[1] * ray_view.x +
+                  invView.entries[5] * ray_view.y +
+                  invView.entries[9] * ray_view.z,
+              invView.entries[2] * ray_view.x +
+                  invView.entries[6] * ray_view.y +
+                  invView.entries[10] * ray_view.z,
+          };
+          float len = ray_world.magnitude();
+	  ray_world = ray_world * (1.0f / len);
 
 	  Vec3 ray_origin = {camX, camY, camZ};
 
@@ -372,14 +381,15 @@ int main()
 	  float world_x = ray_origin.x + t * ray_world.x;
 	  float world_y = ray_origin.y + t * ray_world.y;
 
-	  mousePos = {world_x, world_y};
+          mouseRayOrigin = {camX, camY, camZ};
+	  mouseRayDir = ray_world;
 	  mouseStrength = g_pull ? PULL_STREN : PUSH_STREN;
 	}
 
         if (dt_to_sim > 0)
         {
           particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w,
-                           g_fb_h, mousePos, mouseStrength);
+                           g_fb_h, mouseRayOrigin, mouseRayDir, mouseStrength);
         }
 
         // Build flat instance arrays
@@ -391,7 +401,7 @@ int main()
         {
             pos_data[3 * i] = particles.positions[i].x;
             pos_data[3 * i + 1] = particles.positions[i].y;
-	    pos_data[3 * i + 2] = 0.0f; // use for z
+	    pos_data[3 * i + 2] = particles.positions[i].z; // use for z
 
             color_data[3 * i] = particles.colors[i].x;
             color_data[3 * i + 1] = particles.colors[i].y;
@@ -412,7 +422,7 @@ int main()
 	glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, view.entries);
 
 	float fov = 45.0f * PI / 180.0f;
-        float view_radius = (radius_logical / g_fb_h) * 2.0f * g_radius * tan(fov / 2.0f);
+        float view_radius = (radius_logical / g_fb_h) * 2.0f * tan(fov / 2.0f);
 	glUniform1f(glGetUniformLocation(shader, "radius"), view_radius);
 
 	glUniform3f(glGetUniformLocation(shader, "lightDir"), 0.6f, 0.8f, 1.0f);

@@ -3,7 +3,7 @@
 
 struct Cell
 {
-	int x, y;
+  int x, y, z;
 
 	Cell &operator+=(const Cell &other);
 	Cell operator+(const Cell &other) const;

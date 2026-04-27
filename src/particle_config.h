@@ -9,6 +9,8 @@ extern float PULL_RAD; // radius of pulling force in NDC units
 extern float INIT_SPACING;        // distance between particles in NDC units. Also affects the target desnity
 extern float INIT_OFFSET_X;         // horizontal offset amount in NDC units (negative -> left : positive -> right)
 extern float INIT_OFFSET_Y;         // vertical offset amount in NDC units (negative -> down : positive -> up)
+extern float INIT_OFFSET_Z;
+
 extern float radius_logical;        // size of particle to be drawn on screen in pixels
 extern unsigned int NUM_PARTICLES; // number of particles in simulation
 
