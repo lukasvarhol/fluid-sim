@@ -195,7 +195,7 @@ void Particles::update(float dt, float smoothingRadius, float radiusPx,
             const int g_fb_w, const int g_fb_h,
             Vec3 rayOrigin, Vec3 rayDir, float mouseStrength)
 {
-    const float mouseRadius  = mouseStrength < 0.0f ? PUSH_RAD : PULL_RAD;
+    const float mouseRadius  = mouseStrength > 0.0f ? PUSH_RAD : PULL_RAD;
     const float mouseRadius2 = mouseRadius * mouseRadius;
 
     // 1. apply gravity + mouse force, predict positions

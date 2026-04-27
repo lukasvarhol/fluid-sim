@@ -16,7 +16,7 @@ static bool g_push = false;
 static bool g_pull = false;
 static bool show_hud = false;
 static float g_panX = 0.0f;
-static float g_panY = 0.0f;
+static float g_panY = -0.4f;
 static bool g_panning = false;
 static double g_lastMouseX = 0.0;
 static double g_lastMouseY = 0.0;
@@ -26,7 +26,7 @@ static int g_fb_h = 480;
 
 static bool g_orbiting = false;
 static float g_azimuth   = 0.0f;    // horizontal angle
-static float g_elevation = 0.3f;    // vertical angle, radians
+static float g_elevation = 0.28f;    // vertical angle, radians
 static float g_radius = 3.0f;
 
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
@@ -103,7 +103,7 @@ void cursor_pos_callback(GLFWwindow *window, double xpos, double ypos)
 
     if (g_orbiting)
     {
-        g_azimuth   += (float)dx * 0.005f;
+        g_azimuth   -= (float)dx * 0.005f;
         g_elevation += (float)dy * 0.005f;
         g_elevation  = std::clamp(g_elevation, -PI/2.0f + 0.01f, PI/2.0f - 0.01f);
     }
@@ -207,7 +207,7 @@ int main()
     
     unsigned int grid_shader = make_shader("src/shaders/grid_vertex.glsl",
 					   "src/shaders/grid_fragment.glsl");
-    Grid *grid = new Grid(150, 0.15f, -1.0f); // 20 cells each side, 0.1 spacing
+    Grid *grid = new Grid(50, 0.2f, -1.0f); // 20 cells each side, 0.1 spacing
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -236,7 +236,7 @@ int main()
     while (!glfwWindowShouldClose(window))
     {
 
-        glfwPollEvents();
+      glfwPollEvents();
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -334,10 +334,10 @@ int main()
 
 	float camX = g_panX + g_radius * cos(g_elevation) * sin(g_azimuth);
 	float camY = g_panY + g_radius * sin(g_elevation);
-	float camZ = g_radius * cos(g_elevation) * cos(g_azimuth);
+        float camZ = g_radius * cos(g_elevation) * cos(g_azimuth);
 
         Mat4 view = lookAt(Vec3{camX, camY, camZ}, Vec3{g_panX, g_panY, 0.0f},
-                           Vec3{0, 1, 0});
+                           Vec3{0, 1.0, 0});
 
 	if ((g_push || g_pull) && !ImGui::GetIO().WantCaptureMouse)
 	{
