@@ -47,13 +47,24 @@ endif()
 
 # ---- App ----
 if(NOT BUILD_BENCHMARKS)
-  find_package(glfw3 CONFIG REQUIRED)
+  include(FetchContent)
+  FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG        3.4
+  )
+  set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(glfw)
+
   find_package(OpenGL REQUIRED)
 
   add_executable(fluid-sim
     src/main.cpp
     src/glad.c
     src/triangle_mesh.cpp
+    src/grid.cpp
     src/cell.h
     src/cell.cpp
     src/particle_config.h

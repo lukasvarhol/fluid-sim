@@ -34,21 +34,21 @@ void parallelFor(int n, F&& func) {
 }
 
   int nParticles;
-    std::vector<Vec2>  positions;
-    std::vector<Vec2>  predictedPositions;
-    std::vector<Vec2>  velocities;
+    std::vector<Vec3>  positions;
+    std::vector<Vec3>  predictedPositions;
+    std::vector<Vec3>  velocities;
     std::vector<float> densities;
     std::vector<Vec3>  colors;
     std::vector<float> allLambdas;
-    std::vector<Vec2>  deltas;
-    std::vector<Vec2>  oldPositions;
-    std::vector<float> vorticity;
+    std::vector<Vec3>  deltas;
+    std::vector<Vec3>  oldPositions;
+    std::vector<Vec3> vorticity;
     std::vector<float> omegaMag;  
 
     std::vector<int> neighbourData;   // size nParticles * MAX_NEIGHBOURS
     std::vector<int> neighbourCount;  // size nParticles 
     std::vector<int> indices;
-    std::vector<Vec2> positionsAtLastBuild;
+    std::vector<Vec3> positionsAtLastBuild;
     float skinRadius;
     bool needsRebuild = true;
 
@@ -56,10 +56,10 @@ void parallelFor(int n, F&& func) {
 
     Particles(int nParticles, float smoothingRadius);
     void update(float dt, float smoothingRadius, float radiusPx,
-        const int g_fb_w, const int g_fb_h,
-        Vec2 mousePos = { 0.0f, 0.0f }, float mouseStrength = 0.0f);
+            const int g_fb_w, const int g_fb_h,
+            Vec3 rayOrigin, Vec3 rayDir, float mouseStrength);
     void reset(float smoothingRadius);
-  void resizeParticles(int nNewParticles, float fSmoothingRadius, float spacing, float ox, float oy);
+  void resizeParticles(int nNewParticles, float fSmoothingRadius, float spacing, float ox, float oy, float oz);
 
 private:
     int   nCells1D;
@@ -69,20 +69,21 @@ private:
     std::vector<int> gridStart;  
     std::vector<int> gridCount;  
 
-  void  clampToBoundaries(Vec2* pos, float radiusPx, const int g_fb_w, const int g_fb_h);
+  void  clampToBoundaries(Vec3* pos, float radiusPx, const int g_fb_w, const int g_fb_h);
   void  initialiseParticles(int nParticles, float spacing);
   float spikyKernelGrad(float smoothingRadius, float distance);
-  Vec2  spikyKernelGradVec(Vec2 a, Vec2 b, float smoothingRadius);
+  Vec3  spikyKernelGradVec(Vec3 a, Vec3 b, float smoothingRadius);
   float poly6Kernel(float smoothingRadius, float distance);
-  float calculateDistance(Vec2 posA, Vec2 posB);
+  float calculateDistance(Vec3 posA, Vec3 posB);
   float calculateDensity(size_t particleIdx, float smoothingRadius);
-  Cell  positionToCoord(Vec2 position, float smoothingRadius);
+  Cell  positionToCoord(Vec3 position, float smoothingRadius);
   void  buildGrid(float smoothingRadius);
   void  buildNeighbours(float smoothingRadius);
   float calculateLambda(size_t particleIdx, float smoothingRadius);
   float estimateRestDensity(float smoothingRadius);
-  float scorr(Vec2 pi, Vec2 pj, float h);
-  Vec3  getColor(Vec2& vel);
+  float scorr(Vec3 pi, Vec3 pj, float h);
+  Vec3  getColor(Vec3& vel);
   bool needsNeighbourRebuild();
+  inline int cellIndex(int cx, int cy, int cz) const;
   
 };

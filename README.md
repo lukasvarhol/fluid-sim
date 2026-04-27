@@ -1,4 +1,4 @@
-# 2D Fluid Simulation (C++/OpenGL)
+# 3D Fluid Simulation (C++/OpenGL)
 
 ![demo](docs/assets/demo.gif)
 
@@ -6,9 +6,9 @@
 
 ## Description
 
-A real-time 2D fluid simulation built to practice C++, graphics programming, and performance optimisation. The simulation implements **Position Based Fluids (PBF)** based on [Macklin & Müller 2013](https://mmacklin.com/pbf_sig_preprint.pdf).
+A real-time 3D fluid simulation built to practice C++, graphics programming, and performance optimisation. The simulation implements **Position Based Fluids (PBF)** based on [Macklin & Müller 2013](https://mmacklin.com/pbf_sig_preprint.pdf).
 
-The simulation runs on the CPU and currently sustains ~7,000 particles at real-time frame rates. Performance was achieved through a series of targeted optimisations:
+The simulation runs on the CPU and currently sustains ~40,000 particles at real-time frame rates with a parallel backend (TBB or `std::execution::par_unseq`-capable stdlib). Performance was achieved through a series of targeted optimisations:
 
 - **Spatial hashing** with a flat grid structure reduces neighbour search from $O(N^2)$ to $O(kN)$, where $k$ is the average neighbour count within the smoothing radius
 - **Flat neighbour lists** with fixed-size per-particle buffers replace `vector<vector<T>>` for cache-friendly access and fully parallel neighbour construction
@@ -24,11 +24,22 @@ The plan is to port the simulation to CUDA for a 3D real-time implementation wit
 
 ## Controls
 
+### Keyboard
 | Key | Action |
 |-----|--------|
 | `SPACE` | Pause / Resume |
 | `→` | Step one frame |
 | `R` | Reset simulation |
+| `ESC` | Toggle HUD |
+
+### Mouse
+| Input | Action |
+|-------|--------|
+| Left click + drag | Pull particles |
+| Right click + drag | Push particles |
+| Shift + Left drag | Orbit camera |
+| Ctrl + Left drag | Pan camera |
+| Scroll Wheel | Zoom in / out |
 
 ---
 
@@ -38,17 +49,22 @@ The plan is to port the simulation to CUDA for a 3D real-time implementation wit
 src/
  ├── main.cpp              # OpenGL app + render loop
  ├── particles.*           # PBF simulation
+ ├── particle_config.*     # Simulation parameters
  ├── linear_algebra.*      # Vec2 / Vec3 / Mat4 math
- ├── triangle_mesh.*       # Rendered quad mesh
+ ├── triangle_mesh.*       # Instanced quad mesh for particle rendering
+ ├── grid.*                # Floor grid 
  ├── colors.h              # Particle colour ramp
  ├── cell.*                # Grid cell type
  ├── helpers.h             # Utility functions
  └── shaders/
+ 	  ├── grid_vertex.glsl
+	  ├── grid_fragment.glsl
       ├── vertex.txt
       └── fragment.txt
 benchmarks/
  ├── benchmark.cpp         # Google Benchmark tests
- ├── run_benchmarks.ps1    # Build + run script
+ ├── run_benchmarks.ps1    # Build + run script (Windows)
+ ├── run_benchmarks.sh     # Build + run script (Unix)
  ├── benchmark_plotting.ipynb
  └── data/                 # Benchmark CSV results
 ```
@@ -114,6 +130,7 @@ Unix:
 
 - [GLFW](https://www.glfw.org/) — windowing and input
 - [GLAD](https://glad.dav1d.de/) — OpenGL loader
+- [Dear ImGui](https://github.com/ocornut/imgui) — runtime HUD for parameter tuning
 - [Google Benchmark](https://github.com/google/benchmark) — fetched automatically via CMake FetchContent
 
 ---

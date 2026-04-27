@@ -2,6 +2,7 @@
 #include "triangle_mesh.h"
 #include "linear_algebra.h"
 #include "particles.h"
+#include "grid.h"
 #include "helpers.h"
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
@@ -14,9 +15,25 @@ static bool g_reset = false;
 static bool g_push = false;
 static bool g_pull = false;
 static bool show_hud = false;
+static float g_panX = 0.0f;
+static float g_panY = 0.0f;
+static bool g_panning = false;
+static double g_lastMouseX = 0.0;
+static double g_lastMouseY = 0.0;
 
 static int g_fb_w = 640;
 static int g_fb_h = 480;
+
+static bool g_orbiting = false;
+static float g_azimuth   = 0.0f;    // horizontal angle
+static float g_elevation = 0.3f;    // vertical angle, radians
+static float g_radius = 3.0f;
+
+void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
+{
+    g_radius -= (float)yoffset * 0.2f;
+    g_radius = std::max(0.001f, g_radius); // don't go through the scene
+}
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
@@ -41,25 +58,70 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
 void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
 {
-    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods); // feed ImGui first
-
-    if (ImGui::GetIO().WantCaptureMouse)
-        return;
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    if (ImGui::GetIO().WantCaptureMouse) return;
 
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         if (action == GLFW_PRESS)
-            g_pull = true;
+        {
+            if (mods & GLFW_MOD_CONTROL)
+            {
+                g_panning = true;
+                glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
+            }
+            else if (mods & GLFW_MOD_SHIFT)
+            {
+                g_orbiting = true;
+                glfwGetCursorPos(window, &g_lastMouseX, &g_lastMouseY);
+            }
+            else
+            {
+                g_pull = true;
+            }
+        }
         if (action == GLFW_RELEASE)
-            g_pull = false;
+        {
+            g_pull    = false;
+            g_panning  = false;
+            g_orbiting = false;
+        }
     }
     if (button == GLFW_MOUSE_BUTTON_RIGHT)
     {
-        if (action == GLFW_PRESS)
-            g_push = true;
-        if (action == GLFW_RELEASE)
-            g_push = false;
+        if (action == GLFW_PRESS)  g_push = true;
+        if (action == GLFW_RELEASE) g_push = false;
     }
+}
+
+void cursor_pos_callback(GLFWwindow *window, double xpos, double ypos)
+{
+    double dx = xpos - g_lastMouseX;
+    double dy = ypos - g_lastMouseY;
+    g_lastMouseX = xpos;
+    g_lastMouseY = ypos;
+
+    if (g_orbiting)
+    {
+        g_azimuth   += (float)dx * 0.005f;
+        g_elevation += (float)dy * 0.005f;
+        g_elevation  = std::clamp(g_elevation, -PI/2.0f + 0.01f, PI/2.0f - 0.01f);
+    }
+    else if (g_panning)
+      {
+	// right and up vectors of the camera
+	float sinA = sin(g_azimuth), cosA = cos(g_azimuth);
+	float sinE = sin(g_elevation), cosE = cos(g_elevation);
+
+	// camera right vector (perpendicular to forward, in XZ plane)
+	Vec3 right = {cosA, 0.0f, -sinA};
+	// camera up vector
+	Vec3 up = {-sinA * sinE, cosE, -cosA * sinE};
+
+	float speed = g_radius * 0.001f;
+	g_panX -= ((float)dx * right.x - (float)dy * up.x) * speed;
+	g_panY -= ((float)dx * right.y - (float)dy * up.y) * speed;
+      }
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height)
@@ -79,35 +141,6 @@ int main()
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
-
-    // Decide GL+GLSL versions
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-    // GL ES 2.0 + GLSL 100 (WebGL 1.0)
-    const char *glsl_version = "#version 100";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(IMGUI_IMPL_OPENGL_ES3)
-    // GL ES 3.0 + GLSL 300 es (WebGL 2.0)
-    const char *glsl_version = "#version 300 es";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(__APPLE__)
-    // GL 3.2 + GLSL 150
-    const char *glsl_version = "#version 150";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
-#else
-    // GL 3.0 + GLSL 130
-    const char *glsl_version = "#version 130";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-#endif
 
     GLFWwindow *window;
 
@@ -142,12 +175,14 @@ int main()
     // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(window, true); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
+    ImGui_ImplGlfw_InitForOpenGL(window, false); // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
     ImGui_ImplOpenGL3_Init();
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetCursorPosCallback(window, cursor_pos_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -155,6 +190,7 @@ int main()
         glfwTerminate();
         return -1;
     }
+    glEnable(GL_DEPTH_TEST);
 
     std::array<float, 3> background_color = rgba_normalizer(0, 0, 0);
     glClearColor(background_color[0], background_color[1], background_color[2], 1.0f);
@@ -167,6 +203,11 @@ int main()
         "src/shaders/vertex.glsl",
         "src/shaders/fragment.glsl");
     glfwSetWindowUserPointer(window, (void *)(uintptr_t)shader);
+
+    
+    unsigned int grid_shader = make_shader("src/shaders/grid_vertex.glsl",
+					   "src/shaders/grid_fragment.glsl");
+    Grid *grid = new Grid(150, 0.15f, -1.0f); // 20 cells each side, 0.1 spacing
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -182,7 +223,7 @@ int main()
     float radius_px;
     reset(particles);
 
-    triangle->setupInstanceBuffers(15000); //TODO: refactor out
+    triangle->setupInstanceBuffers(60000); //TODO: refactor out
 
     double lastTime = glfwGetTime();
 
@@ -217,30 +258,30 @@ int main()
               if (g_paused) {
 		bool changed = false;
 		int nPending = particles.nParticles;
-		changed |= ImGui::SliderInt("Particles", &nPending, 1000, 15000);
-		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.02f);
+		changed |= ImGui::SliderInt("Particles", &nPending, 10, 60000);
+		changed |= ImGui::SliderFloat("Spacing",   &INIT_SPACING,  0.01f, 0.2f);
 		changed |= ImGui::SliderFloat("Offset X",  &INIT_OFFSET_X, -0.5f, 0.5f);
 		changed |= ImGui::SliderFloat("Offset Y",  &INIT_OFFSET_Y, -0.5f, 0.5f);
 
 		if (changed)
-		  particles.resizeParticles(nPending, smoothingRadius,
-                                  INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y);
+		  particles.resizeParticles(nPending, smoothingRadius, 
+					    INIT_SPACING, INIT_OFFSET_X, INIT_OFFSET_Y, INIT_OFFSET_Z);
 	      } else {
                 int nDisplay = particles.nParticles;
                 ImGui::BeginDisabled();
-                ImGui::SliderInt("Particles", &nDisplay, 1000, 15000);
+                ImGui::SliderInt("Particles", &nDisplay, 1000, 60000);
 		ImGui::SliderFloat("Pos X", &INIT_OFFSET_X, -1.0f, 1.0f);
                 ImGui::SliderFloat("Pos Y", &INIT_OFFSET_Y, -1.0f, 1.0f);
-	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.01f, 0.02f);
+	        ImGui::SliderFloat("Spacing", &INIT_SPACING, 0.001f, 0.1f);
                 ImGui::EndDisabled();
               }
               
 		  
-              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 10.0f);
+              ImGui::SliderFloat("Particle Size", &radius_logical, 1.0f, 50.0f);
             }
 
             if (ImGui::CollapsingHeader("Physics")) {
-	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 0.10f);
+	      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 1.0f);
               ImGui::SliderFloat("Relaxation Factor", &RELAXATION_F, 1000.0f, 50000.0f);
               ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
               ImGui::SliderFloat("Scorr Coefficient", &k, 0.000001f, 0.00005f);
@@ -258,6 +299,8 @@ int main()
 
             ImGui::End();
         }
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         radius_px = radius_logical * xscale;
 
@@ -285,41 +328,85 @@ int main()
             g_step_one = false;
         }
 
-        Vec2 mousePos = {0.0f, 0.0f};
+        Vec3 mouseRayOrigin = {0.0f, 0.0f, 0.0f};
+	Vec3 mouseRayDir = {0.0f, 0.0f, 0.0f};
         float mouseStrength = 0.0f;
 
-        if (g_push || g_pull)
-        {
-            double xpos, ypos;
-            glfwGetCursorPos(window, &xpos, &ypos);
-            int winW, winH;
-            glfwGetWindowSize(window, &winW, &winH);
+	float camX = g_panX + g_radius * cos(g_elevation) * sin(g_azimuth);
+	float camY = g_panY + g_radius * sin(g_elevation);
+	float camZ = g_radius * cos(g_elevation) * cos(g_azimuth);
 
-            float x_ndc = (float)((xpos / winW) * 2.0 - 1.0);
-            float y_ndc = (float)(1.0 - (ypos / winH) * 2.0);
+        Mat4 view = lookAt(Vec3{camX, camY, camZ}, Vec3{g_panX, g_panY, 0.0f},
+                           Vec3{0, 1, 0});
 
-            mousePos = {x_ndc, y_ndc};
-            mouseStrength = g_pull ? PULL_STREN : PUSH_STREN;
-        }
+	if ((g_push || g_pull) && !ImGui::GetIO().WantCaptureMouse)
+	{
+	  double xpos, ypos;
+	  glfwGetCursorPos(window, &xpos, &ypos);
+	  int winW, winH;
+	  glfwGetWindowSize(window, &winW, &winH);
+
+	  float x_ndc = (float)((xpos / winW) * 2.0 - 1.0);
+	  float y_ndc = (float)(1.0 - (ypos / winH) * 2.0);
+
+	  float fov = 45.0f * PI / 180.0f;
+	  float aspect = (float)winW / winH;
+	  float tan_half_fov = tan(fov / 2.0f);
+
+	  Vec3 ray_view = {
+	    x_ndc * aspect * tan_half_fov,
+	    y_ndc * tan_half_fov,
+	    -1.0f
+	  };
+	    // transform ray to world space using inverse view
+	  Mat4 invView = inverse_view(view);
+
+          Vec3 ray_world = {
+              invView.entries[0] * ray_view.x +
+                  invView.entries[4] * ray_view.y +
+                  invView.entries[8] * ray_view.z,
+              invView.entries[1] * ray_view.x +
+                  invView.entries[5] * ray_view.y +
+                  invView.entries[9] * ray_view.z,
+              invView.entries[2] * ray_view.x +
+                  invView.entries[6] * ray_view.y +
+                  invView.entries[10] * ray_view.z,
+          };
+          float len = ray_world.magnitude();
+	  ray_world = ray_world * (1.0f / len);
+
+	  Vec3 ray_origin = {camX, camY, camZ};
+
+	  float t = -ray_origin.z / ray_world.z;
+	  float world_x = ray_origin.x + t * ray_world.x;
+	  float world_y = ray_origin.y + t * ray_world.y;
+
+          mouseRayOrigin = {camX, camY, camZ};
+	  mouseRayDir = ray_world;
+	  mouseStrength = g_pull ? PULL_STREN : PUSH_STREN;
+	}
 
         if (dt_to_sim > 0)
         {
           particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w,
-                           g_fb_h, mousePos, mouseStrength);
+                           g_fb_h, mouseRayOrigin, mouseRayDir, mouseStrength);
         }
 
         // Build flat instance arrays
 	int n = particles.nParticles;
-        std::vector<float> pos_data(n * 2);
+        std::vector<float> pos_data(n * 3);
         std::vector<float> color_data(n * 3);
+	std::vector<float> angle_data(n);
         for (size_t i = 0; i < n; ++i)
         {
-            pos_data[2 * i] = particles.positions[i].x;
-            pos_data[2 * i + 1] = particles.positions[i].y;
+            pos_data[3 * i] = particles.positions[i].x;
+            pos_data[3 * i + 1] = particles.positions[i].y;
+	    pos_data[3 * i + 2] = particles.positions[i].z; // use for z
 
             color_data[3 * i] = particles.colors[i].x;
             color_data[3 * i + 1] = particles.colors[i].y;
             color_data[3 * i + 2] = particles.colors[i].z;
+
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -327,10 +414,22 @@ int main()
 
         float sx = (2.0f * radius_px) / (float)g_fb_w;
         float sy = (2.0f * radius_px) / (float)g_fb_h;
-        glUniform2f(scale_location, sx, sy);
+
+        Mat4 proj = perspective(45.0f * PI / 180.0f, (float)g_fb_w / g_fb_h,
+                                0.1f, 100.0f);
+
+	glUniformMatrix4fv(glGetUniformLocation(shader, "projection"), 1, GL_FALSE, proj.entries);
+	glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, view.entries);
+
+	float fov = 45.0f * PI / 180.0f;
+        float view_radius = (radius_logical / g_fb_h) * 2.0f * tan(fov / 2.0f);
+	glUniform1f(glGetUniformLocation(shader, "radius"), view_radius);
+
+	glUniform3f(glGetUniformLocation(shader, "lightDir"), 0.6f, 0.8f, 1.0f);
 
         triangle->updateInstanceData(pos_data, color_data);
         triangle->drawInstanced((int)particles.positions.size());
+	grid->draw(grid_shader, proj.entries, view.entries);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -339,6 +438,8 @@ int main()
     }
     glDeleteProgram(shader);
     delete triangle;
+    glDeleteProgram(grid_shader);
+    delete grid;
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

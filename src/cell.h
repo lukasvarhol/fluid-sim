@@ -1,0 +1,16 @@
+#pragma once
+#include <cstddef>
+
+struct Cell
+{
+  int x, y, z;
+
+	Cell &operator+=(const Cell &other);
+	Cell operator+(const Cell &other) const;
+};
+
+struct CellEntry
+{
+	unsigned int hash;
+	size_t index;
+};
