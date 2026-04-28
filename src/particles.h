@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+
+namespace physics3d { class ObstacleSystem; }
 #include <iostream>
 #include <unordered_map>
 #include <array>
@@ -57,7 +59,8 @@ void parallelFor(int n, F&& func) {
     Particles(int nParticles, float smoothingRadius);
     void update(float dt, float smoothingRadius, float radiusPx,
             const int g_fb_w, const int g_fb_h,
-            Vec3 rayOrigin, Vec3 rayDir, float mouseStrength);
+            Vec3 rayOrigin, Vec3 rayDir, float mouseStrength,
+            physics3d::ObstacleSystem* obstacles = nullptr);
     void reset(float smoothingRadius);
   void resizeParticles(int nNewParticles, float fSmoothingRadius, float spacing, float ox, float oy, float oz);
 

@@ -48,14 +48,14 @@ struct Vec3 {
   [[nodiscard]] float dot(const Vec3& o) const { return x*o.x + y*o.y + z*o.z; }
 
   Vec3& operator+=(const Vec3& o) { x+=o.x; y+=o.y; z+=o.z; return *this; }
-  Vec3& operator-=(const Vec3& o) { x-=o.x; y-=o.y; z+=o.z; return *this; }
-  Vec3& operator*=(const Vec3& o) { x*=o.x; y*=o.y; z+=o.z; return *this; }
-  Vec3& operator/=(const Vec3& o) { x/=o.x; y/=o.y; z+=o.z; return *this; }
+  Vec3& operator-=(const Vec3& o) { x-=o.x; y-=o.y; z-=o.z; return *this; }
+  Vec3& operator*=(const Vec3& o) { x*=o.x; y*=o.y; z*=o.z; return *this; }
+  Vec3& operator/=(const Vec3& o) { x/=o.x; y/=o.y; z/=o.z; return *this; }
 
   [[nodiscard]] Vec3 operator+(const Vec3& o) const { return {x+o.x, y+o.y, z+o.z}; }
   [[nodiscard]] Vec3 operator-(const Vec3& o) const { return {x-o.x, y-o.y, z-o.z}; }
   [[nodiscard]] Vec3 operator*(const Vec3& o) const { return {x*o.x, y*o.y, z*o.z}; }
-  [[nodiscard]] Vec3 operator/(const Vec3& o) const { return {x/o.x, y/o.y, z/o.y}; }
+  [[nodiscard]] Vec3 operator/(const Vec3& o) const { return {x/o.x, y/o.y, z/o.z}; }
 
   Vec3& operator*=(float s) { x*=s; y*=s; z*=s; return *this; }
   Vec3& operator/=(float s) { float r=1.f/s; x*=r; y*=r; z*=r; return *this; }

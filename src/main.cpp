@@ -4,6 +4,9 @@
 #include "particles.h"
 #include "grid.h"
 #include "helpers.h"
+#include "physics3d/obstacle_system.h"
+#include "physics3d/wireframe_renderer.h"
+#include "physics3d/machine_object_system.h"
 
 unsigned int make_shader(const std::string &vertex_filepath, const std::string &fragment_filepath);
 unsigned int make_module(const std::string &filepath, unsigned int module_type);
@@ -136,6 +139,17 @@ static void glfw_error_callback(int error, const char *description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+static void drawObstacleDebug(const physics3d::ObstacleSystem& obs,
+                               physics3d::WireframeRenderer& wireframe)
+{
+    for (const auto& box : obs.boxes)
+        wireframe.addBox(box.center, box.halfSize, 1.0f, 0.5f, 0.0f);
+    for (const auto& sphere : obs.spheres)
+        wireframe.addSphere(sphere.center, sphere.radius, 0.0f, 0.9f, 1.0f);
+    for (const auto& plane : obs.planes)
+        wireframe.addPlane(plane.point, plane.normal, 0.8f, 1.0f, 0.9f, 0.1f);
+}
+
 int main()
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -197,6 +211,10 @@ int main()
 
     Particles particles(NUM_PARTICLES, smoothingRadius);
 
+    physics3d::ObstacleSystem      obstacleSystem;
+    physics3d::MachineObjectSystem machineSystem;
+    machineSystem.setDefaultScene(obstacleSystem);
+
     TriangleMesh *triangle = new TriangleMesh();
 
     unsigned int shader = make_shader(
@@ -208,6 +226,8 @@ int main()
     unsigned int grid_shader = make_shader("src/shaders/grid_vertex.glsl",
 					   "src/shaders/grid_fragment.glsl");
     Grid *grid = new Grid(50, 0.2f, -1.0f); // 20 cells each side, 0.1 spacing
+
+    physics3d::WireframeRenderer wireframe;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -294,8 +314,10 @@ int main()
               ImGui::SliderFloat("Push Strength", &PUSH_STREN, -100.0f, 0.0f);
               ImGui::SliderFloat("Pull Strength", &PULL_STREN, 0.0, 100.0f);
               ImGui::SliderFloat("Push Radius", &PUSH_RAD, 0.0f, 1.0f);
-              ImGui::SliderFloat("Pull Radius", &PULL_RAD, 0.0f, 1.0f); 
+              ImGui::SliderFloat("Pull Radius", &PULL_RAD, 0.0f, 1.0f);
             }
+
+            machineSystem.renderImGui(obstacleSystem);
 
             ImGui::End();
         }
@@ -389,7 +411,8 @@ int main()
         if (dt_to_sim > 0)
         {
           particles.update(dt_to_sim, smoothingRadius, radius_px, g_fb_w,
-                           g_fb_h, mouseRayOrigin, mouseRayDir, mouseStrength);
+                           g_fb_h, mouseRayOrigin, mouseRayDir, mouseStrength,
+                           &obstacleSystem);
         }
 
         // Build flat instance arrays
@@ -430,6 +453,9 @@ int main()
         triangle->updateInstanceData(pos_data, color_data);
         triangle->drawInstanced((int)particles.positions.size());
 	grid->draw(grid_shader, proj.entries, view.entries);
+
+        drawObstacleDebug(obstacleSystem, wireframe);
+        wireframe.flush(proj.entries, view.entries);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

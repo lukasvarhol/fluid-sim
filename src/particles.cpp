@@ -1,5 +1,6 @@
 #include "particles.h"
 #include "colors.h"
+#include "physics3d/obstacle_system.h"
 
 #include <chrono>
 #include <cmath>
@@ -193,10 +194,16 @@ float Particles::calculateLambda(size_t i, float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::update(float dt, float smoothingRadius, float radiusPx,
             const int g_fb_w, const int g_fb_h,
-            Vec3 rayOrigin, Vec3 rayDir, float mouseStrength)
+            Vec3 rayOrigin, Vec3 rayDir, float mouseStrength,
+            physics3d::ObstacleSystem* obstacles)
 {
     const float mouseRadius  = mouseStrength > 0.0f ? PUSH_RAD : PULL_RAD;
     const float mouseRadius2 = mouseRadius * mouseRadius;
+
+    // World-space particle radius: domain is [-1,1]^3, radius in NDC units
+    const float particleRadius = (g_fb_w > 0 && g_fb_h > 0)
+        ? radiusPx / (float)std::min(g_fb_w, g_fb_h)
+        : 0.02f;
 
     // 1. apply gravity + mouse force, predict positions
     oldPositions = positions;
@@ -219,6 +226,11 @@ void Particles::update(float dt, float smoothingRadius, float radiusPx,
 	  }
 	}
         predictedPositions[i] = positions[i] + velocities[i] * dt;
+
+        // Resolve obstacles before the PBF solver sees this particle so the
+        // initial predicted position is already in a valid (outside-obstacle) state.
+        if (obstacles)
+            obstacles->resolveAll(predictedPositions[i], velocities[i], particleRadius);
     }
 
     // 2. spatial data structures
@@ -259,6 +271,10 @@ void Particles::update(float dt, float smoothingRadius, float radiusPx,
         parallelFor(nParticles, [&](int i) {
             predictedPositions[i] += deltas[i];
             clampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
+            // Resolve obstacles after each PBF correction so pressure cannot push
+            // particles back into an obstacle on the next iteration.
+            if (obstacles)
+                obstacles->resolveAll(predictedPositions[i], velocities[i], particleRadius);
         });
     }
 

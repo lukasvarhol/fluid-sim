@@ -16,6 +16,9 @@ add_library(
   src/cell.cpp
   src/particle_config.h
   src/particle_config.cpp
+  src/physics3d/obstacle.cpp
+  src/physics3d/obstacle_system.cpp
+  src/physics3d/machine_object_system.cpp
   dependencies/imgui/imgui.cpp
   dependencies/imgui/imgui_demo.cpp
   dependencies/imgui/imgui_draw.cpp
@@ -69,6 +72,7 @@ if(NOT BUILD_BENCHMARKS)
     src/cell.cpp
     src/particle_config.h
     src/particle_config.cpp
+    src/physics3d/wireframe_renderer.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE
