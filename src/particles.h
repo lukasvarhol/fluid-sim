@@ -38,7 +38,6 @@ void parallelFor(int n, F&& func) {
     std::vector<Vec3>  predictedPositions;
     std::vector<Vec3>  velocities;
     std::vector<float> densities;
-    std::vector<Vec3>  colors;
     std::vector<float> allLambdas;
     std::vector<Vec3>  deltas;
     std::vector<Vec3>  oldPositions;
@@ -82,7 +81,6 @@ private:
   float calculateLambda(size_t particleIdx, float smoothingRadius);
   float estimateRestDensity(float smoothingRadius);
   float scorr(Vec3 pi, Vec3 pj, float h);
-  Vec3  getColor(Vec3& vel);
   bool needsNeighbourRebuild();
   inline int cellIndex(int cx, int cy, int cz) const;
   

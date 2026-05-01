@@ -395,18 +395,16 @@ int main()
         // Build flat instance arrays
 	int n = particles.nParticles;
         std::vector<float> pos_data(n * 3);
-        std::vector<float> color_data(n * 3);
-	std::vector<float> angle_data(n);
+        std::vector<float> vel_data(n * 3);
         for (size_t i = 0; i < n; ++i)
         {
-            pos_data[3 * i] = particles.positions[i].x;
+            pos_data[3 * i]     = particles.positions[i].x;
             pos_data[3 * i + 1] = particles.positions[i].y;
-	    pos_data[3 * i + 2] = particles.positions[i].z; // use for z
+            pos_data[3 * i + 2] = particles.positions[i].z;
 
-            color_data[3 * i] = particles.colors[i].x;
-            color_data[3 * i + 1] = particles.colors[i].y;
-            color_data[3 * i + 2] = particles.colors[i].z;
-
+            vel_data[3 * i]     = particles.velocities[i].x;
+            vel_data[3 * i + 1] = particles.velocities[i].y;
+            vel_data[3 * i + 2] = particles.velocities[i].z;
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
@@ -427,7 +425,7 @@ int main()
 
 	glUniform3f(glGetUniformLocation(shader, "lightDir"), 0.6f, 0.8f, 1.0f);
 
-        triangle->updateInstanceData(pos_data, color_data);
+        triangle->updateInstanceData(pos_data, vel_data);
         triangle->drawInstanced((int)particles.positions.size());
 	grid->draw(grid_shader, proj.entries, view.entries);
 

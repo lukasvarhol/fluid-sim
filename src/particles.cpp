@@ -1,5 +1,4 @@
 #include "particles.h"
-#include "colors.h"
 
 #include <chrono>
 #include <cmath>
@@ -37,7 +36,6 @@ Particles::Particles(int n, float smoothingRadius)
     predictedPositions.reserve(nParticles);
     velocities.reserve(nParticles);
     densities.reserve(nParticles);
-    colors.reserve(nParticles);
     allLambdas.resize(nParticles);
     deltas.resize(nParticles);
     oldPositions.resize(nParticles);
@@ -74,7 +72,6 @@ void Particles::initialiseParticles(int n, float spacing)
         positions.push_back(Vec3{x, y, z});
         predictedPositions.push_back(Vec3{x, y, z});
         velocities.push_back(Vec3{0.0f, 0.0f, 0.0f});
-        colors.push_back(Vec3{0.0f, 0.0f, 1.0f});
         densities.push_back(0.0f);
     }
 }
@@ -265,7 +262,6 @@ void Particles::update(float dt, float smoothingRadius, float radiusPx,
     // 4. velocity update
     parallelFor(nParticles, [&](int i) {
         velocities[i] = (predictedPositions[i] - positions[i]) / dt;
-        colors[i]     = getColor(velocities[i]);
         positions[i]  = predictedPositions[i];
     });
 
@@ -417,7 +413,6 @@ void Particles::reset(float smoothingRadius)
     predictedPositions.clear();
     velocities.clear();
     densities.clear();
-    colors.clear();
 
     std::fill(gridCount.begin(),      gridCount.end(),      0);
     std::fill(neighbourCount.begin(), neighbourCount.end(), 0);
@@ -471,24 +466,6 @@ float Particles::scorr(Vec3 pi, Vec3 pj, float h)
 }
 
 // ---------------------------------------------------------------------------
-Vec3 Particles::getColor(Vec3& vel)
-{
-    float magnitude = vel.magnitude();
-    float s = std::clamp(magnitude / MAX_SPEED, 0.0f, 1.0f);
-
-    for (size_t i = 0; i + 1 < ColorStops.size(); ++i) {
-        if (s >= ColorStops[i].pos && s <= ColorStops[i + 1].pos) {
-            float span = ColorStops[i + 1].pos - ColorStops[i].pos;
-            float t    = (span > 0.0f) ? (s - ColorStops[i].pos) / span : 0.0f;
-            Vec3 lower = {ColorStops[i].r,   ColorStops[i].g,   ColorStops[i].b};
-            Vec3 upper = {ColorStops[i+1].r, ColorStops[i+1].g, ColorStops[i+1].b};
-            return lerp(lower, upper, t);
-        }
-    }
-    return {1.0f, 1.0f, 1.0f};
-}
-
-// ---------------------------------------------------------------------------
 bool Particles::needsNeighbourRebuild()
 {
     if (positionsAtLastBuild.size() != (size_t)nParticles) return true;
@@ -513,7 +490,6 @@ void Particles::resizeParticles(int nNewParticles, float fSmoothingRadius,
     predictedPositions.clear(); predictedPositions.reserve(nNewParticles);
     velocities.clear();         velocities.reserve(nNewParticles);
     densities.clear();          densities.reserve(nNewParticles);
-    colors.clear();             colors.reserve(nNewParticles);
 
     allLambdas.resize(nNewParticles);
     deltas.resize(nNewParticles);
