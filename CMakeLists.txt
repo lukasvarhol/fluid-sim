@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(
   fluid_core
   src/particles.cpp
-  src/linear_algebra.cpp
+  src/linear_algebra.h
   src/colors.h
   src/cell.h
   src/cell.cpp
