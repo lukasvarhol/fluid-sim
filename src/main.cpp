@@ -1,9 +1,12 @@
 #include "config.h"
-#include "triangle_mesh.h"
+#include "particle_mesh.h"
 #include "linear_algebra.h"
 #include "particles.h"
 #include "grid.h"
 #include "app/app_state.h"
+#include "systems/camera_system.h"
+#include "systems/render_system.h"
+#include "systems/hud_system.h"
 
 #include "helpers.h"
 
@@ -13,7 +16,7 @@ void Reset(Particles &particles);
 
 void ScrollCallback(GLFWwindow *window, double xOffset, double yOffset) {
   AppState *appState =
-      static_cast<AppState *>(glfwGetWindowUserPointer(window));
+    static_cast<AppState *>(glfwGetWindowUserPointer(window));
   
   appState->camera->radius -= (float)yOffset * 0.2f;
   appState->camera->radius = std::max(0.001f, appState->camera->radius); // don't go through the scene
@@ -44,7 +47,7 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
 
 void MouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
   AppState *appState =
-      static_cast<AppState *>(glfwGetWindowUserPointer(window));
+    static_cast<AppState *>(glfwGetWindowUserPointer(window));
   
   ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
   if (ImGui::GetIO().WantCaptureMouse) return;
@@ -78,7 +81,7 @@ void MouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
 
 void CursorPosCallback(GLFWwindow *window, double xpos, double ypos) {
   AppState *appState =
-      static_cast<AppState *>(glfwGetWindowUserPointer(window));
+    static_cast<AppState *>(glfwGetWindowUserPointer(window));
   
   double dx = xpos - appState->inputState->lastMouseX;
   double dy = ypos -  appState->inputState->lastMouseY;
@@ -138,9 +141,9 @@ int main() {
     {
       std::cerr << "Failed to initialize GLFW" << std::endl;
       return -1;
-  }
+    }
 
-    GLFWwindow *window;
+  GLFWwindow *window;
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -155,9 +158,9 @@ int main() {
       glfwTerminate();
       return -1;
     }
-    glfwMakeContextCurrent(window);
+  glfwMakeContextCurrent(window);
 
-    glfwSetWindowUserPointer(window, &appState);
+  glfwSetWindowUserPointer(window, &appState);
 
   // ImGui_ImplGlfw_InitForOpenGL(window, false); // don't auto-install
 
@@ -191,16 +194,16 @@ int main() {
 
   Particles particles(numParticles, smoothingRadius);
 
-  TriangleMesh *triangle = new TriangleMesh();
+  ParticleMesh particleMesh;
 
-  unsigned int shader = MakeShader(
-				   "src/shaders/vertex.glsl",
-				   "src/shaders/fragment.glsl");
+  unsigned int particleShader = MakeShader(
+					   "src/shaders/vertex.glsl",
+					   "src/shaders/fragment.glsl");
 
   unsigned int gridShader = MakeShader(
-					"src/shaders/grid_vertex.glsl",
-					"src/shaders/grid_fragment.glsl");
-  Grid *grid = new Grid(50, 0.2f, -1.0f); 
+				       "src/shaders/grid_vertex.glsl",
+				       "src/shaders/grid_fragment.glsl");
+  Grid grid(50, 0.2f, -1.0f); 
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -208,81 +211,20 @@ int main() {
   glfwGetFramebufferSize(window, &viewport.screenWidth, &viewport.screenHeight);
   glViewport(0, 0, viewport.screenWidth, viewport.screenHeight);
 
-  glUseProgram(shader);
-
   float xScale, yScale;
   glfwGetWindowContentScale(window, &xScale, &yScale);
 
   float radiusPx;
   Reset(particles);
 
-  triangle->setupInstanceBuffers(60000); //TODO: refactor out
+  particleMesh.SetupInstanceBuffers(60000); //TODO: refactor out
 
   double lastTime = glfwGetTime();
-
-  unsigned int scaleLocation = glGetUniformLocation(shader, "scale");
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-    if (simulationControl.isShowHUD) {
-      ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
-      ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
-      ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
-	ImGuiWindowFlags_NoResize |
-	ImGuiWindowFlags_NoScrollbar |
-	ImGuiWindowFlags_NoBackground |
-	ImGuiWindowFlags_AlwaysAutoResize;
-      ImGui::Begin("##hud", nullptr, flags);
-
-      ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-
-      if (ImGui::CollapsingHeader("Appearance")) {
-        if (simulationControl.isPaused) {
-	  bool changed = false;
-	  int nPending = particles.numParticles;
-	  changed |= ImGui::SliderInt("Particles", &nPending, 10, 60000);
-	  changed |= ImGui::SliderFloat("Spacing", &initSpacing,  0.01f, 0.2f);
-	  changed |= ImGui::SliderFloat("Offset X", &initOffsetX, -0.5f, 0.5f);
-	  changed |= ImGui::SliderFloat("Offset Y", &initOffsetY, -0.5f, 0.5f);
-	  changed |= ImGui::SliderFloat("Offset Z", &initOffsetZ, -0.5f, 0.5f);
-
-	  if (changed)
-	    particles.ResizeParticles(nPending, smoothingRadius, 
-				      initSpacing, initOffsetX, initOffsetY, initOffsetZ);
-	} else {
-	  int nDisplay = particles.numParticles;
-	  ImGui::BeginDisabled();
-	  ImGui::SliderInt("Particles", &nDisplay, 1000, 60000);
-	  ImGui::SliderFloat("Pos X", &initOffsetX, -1.0f, 1.0f);
-	  ImGui::SliderFloat("Pos Y", &initOffsetY, -1.0f, 1.0f);
-	  ImGui::SliderFloat("Spacing", &initSpacing, 0.001f, 0.1f);
-	  ImGui::EndDisabled();
-	}	  
-	ImGui::SliderFloat("Particle Size", &radiusLogical, 1.0f, 50.0f);
-      }
-
-      if (ImGui::CollapsingHeader("Physics")) {
-	ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 1.0f);
-	ImGui::SliderFloat("Relaxation Factor", &relaxation, 1000.0f, 50000.0f);
-	ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
-	ImGui::SliderFloat("Scorr Coefficient", &scorrCoefficient, 0.000001f, 0.00005f);
-	ImGui::SliderFloat("Viscosity", &xsphC, 0.01f, 1.0f);
-	ImGui::SliderFloat("Vorticity", &vorticityEpsilon, 0.0f, 20000.0f);
-	ImGui::SliderInt("Solvert Iterations", &numIterations, 1, 20);
-      }
-            
-      if (ImGui::CollapsingHeader("Mouse")) {
-	ImGui::SliderFloat("Push Strength", &pushStrength, -100.0f, 0.0f);
-	ImGui::SliderFloat("Pull Strength", &pullStrength, 0.0, 100.0f);
-	ImGui::SliderFloat("Push Radius", &pushRadius, 0.0f, 1.0f);
-	ImGui::SliderFloat("Pull Radius", &pullRadius, 0.0f, 1.0f); 
-      }
-      ImGui::End();
-    }
+    DrawHUD(particles, simulationControl);    
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -312,12 +254,7 @@ int main() {
     Vec3 mouseRayDir = {0.0f, 0.0f, 0.0f};
     float mouseStrength = 0.0f;
 
-    float camX = camera.panX + camera.radius * cos(camera.elevation) * sin(camera.azimuth);
-    float camY = camera.panY + camera.radius * sin(camera.elevation);
-    float camZ = camera.radius * cos(camera.elevation) * cos(camera.azimuth);
-
-    Mat4 view = LookAt(Vec3{camX, camY, camZ}, Vec3{camera.panX, camera.panY, 0.0f},
-		       Vec3{0, 1.0, 0});
+    CameraState cameraState = ComputeViewMatrix(camera);
 
     if ((inputState.isPushing || inputState.isPulling) && !ImGui::GetIO().WantCaptureMouse) {
       double xPos, yPos;
@@ -338,7 +275,7 @@ int main() {
 	-1.0f
       };
       // transform ray to world space using inverse view
-      Mat4 invView = InverseView(view);
+      Mat4 invView = InverseView(cameraState.view);
 
       Vec3 rayWorld = {
 	invView.entries[0] * rayView.x +
@@ -354,13 +291,13 @@ int main() {
       float len = rayWorld.Magnitude();
       rayWorld = rayWorld * (1.0f / len);
 
-      Vec3 rayOrigin = {camX, camY, camZ};
+      Vec3 rayOrigin = cameraState.position;
 
       float t = -rayOrigin.z / rayWorld.z;
       float worldX = rayOrigin.x + t * rayWorld.x;
       float worldY = rayOrigin.y + t * rayWorld.y;
 
-      mouseRayOrigin = {camX, camY, camZ};
+      mouseRayOrigin = cameraState.position;
       mouseRayDir = rayWorld;
       mouseStrength = inputState.isPulling ? pullStrength : pushStrength;
     }
@@ -371,52 +308,16 @@ int main() {
 			 viewport.screenHeight, mouseRayOrigin, mouseRayDir, mouseStrength);
       }
 
-    // Build flat instance arrays
-    int n = particles.numParticles;
-    std::vector<float> posData(n * 3);
-    std::vector<float> velData(n * 3);
-    for (size_t i = 0; i < n; ++i)
-      {
-	posData[3 * i]     = particles.positions[i].x;
-	posData[3 * i + 1] = particles.positions[i].y;
-	posData[3 * i + 2] = particles.positions[i].z;
-       
-	velData[3 * i]     = particles.velocities[i].x;
-	velData[3 * i + 1] = particles.velocities[i].y;
-	velData[3 * i + 2] = particles.velocities[i].z;
-      }
-   
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(shader);
-   
-    float sx = (2.0f * radiusPx) / (float)viewport.screenWidth;
-    float sy = (2.0f * radiusPx) / (float)viewport.screenHeight;
-   
-    Mat4 proj = Perspective(45.0f * PI / 180.0f, (float)viewport.screenWidth / viewport.screenHeight,
-			    0.1f, 100.0f);
-   
-    glUniformMatrix4fv(glGetUniformLocation(shader, "projection"), 1, GL_FALSE, proj.entries);
-    glUniformMatrix4fv(glGetUniformLocation(shader, "view"), 1, GL_FALSE, view.entries);
-   
-    float fov = 45.0f * PI / 180.0f;
-    float viewRadius = (radiusLogical / viewport.screenHeight) * 2.0f * tan(fov / 2.0f);
-    glUniform1f(glGetUniformLocation(shader, "radius"), viewRadius);
-   
-    glUniform3f(glGetUniformLocation(shader, "lightDir"), 0.6f, 0.8f, 1.0f);
+    Render(cameraState, viewport, particles, particleMesh,
+	   grid, particleShader, gridShader, radiusLogical, xScale);
 
-    triangle->updateInstanceData(posData, velData);
-    triangle->drawInstanced((int)particles.positions.size());
-    grid->draw(gridShader, proj.entries, view.entries);
-   
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwSwapBuffers(window);
   }
-  glDeleteProgram(shader);
-  delete triangle;
+  glDeleteProgram(particleShader);
   glDeleteProgram(gridShader);
-  delete grid;
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

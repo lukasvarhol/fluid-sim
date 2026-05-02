@@ -16,6 +16,12 @@ add_library(
   src/cell.cpp
   src/particle_config.h
   src/particle_config.cpp
+  src/systems/camera_system.h
+  src/systems/camera_system.cpp
+  src/systems/camera_system.h
+  src/systems/camera_system.cpp
+  src/systems/hud_system.h
+  src/systems/hud_system.cpp
   dependencies/imgui/imgui.cpp
   dependencies/imgui/imgui_demo.cpp
   dependencies/imgui/imgui_draw.cpp
@@ -63,12 +69,18 @@ if(NOT BUILD_BENCHMARKS)
   add_executable(fluid-sim
     src/main.cpp
     src/glad.c
-    src/triangle_mesh.cpp
+    src/particle_mesh.cpp
     src/grid.cpp
     src/cell.h
     src/cell.cpp
     src/particle_config.h
     src/particle_config.cpp
+    src/systems/camera_system.h
+    src/systems/camera_system.cpp
+    src/systems/render_system.h
+    src/systems/render_system.cpp
+    src/systems/hud_system.h
+    src/systems/hud_system.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE
