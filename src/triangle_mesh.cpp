@@ -38,28 +38,26 @@ void TriangleMesh::setupInstanceBuffers(int num_particles){
     // instance positions
     glGenBuffers(1, &instancePosVBO);
     glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
-    glBufferData(GL_ARRAY_BUFFER, num_particles * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, num_particles * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
     glVertexAttribDivisor(1,1);
 
-    // instance colors
-    glGenBuffers(1, &instanceColorVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
+    // instance velocities
+    glGenBuffers(1, &instanceVelVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVelVBO);
     glBufferData(GL_ARRAY_BUFFER, num_particles * 3 *sizeof(float), nullptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
-
-    glBindVertexArray(0);
 }
 
-void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const std::vector<float>& colors){
+void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const std::vector<float>& velocities){
     glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() *sizeof(float), positions.data());
-    
-    glBindBuffer(GL_ARRAY_BUFFER, instanceColorVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(float), colors.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(float), positions.data());
+
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVelVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, velocities.size() * sizeof(float), velocities.data());
 }
 
 void TriangleMesh::drawInstanced(int num_particles) {
@@ -72,5 +70,5 @@ TriangleMesh::~TriangleMesh() {
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
     glDeleteBuffers(1, &instancePosVBO);
-    glDeleteBuffers(1, &instanceColorVBO);
+    glDeleteBuffers(1, &instanceVelVBO);
 }
