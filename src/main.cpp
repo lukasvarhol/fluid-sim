@@ -1,19 +1,7 @@
 #include "config.h"
-#include "particle_mesh.h"
-#include "linear_algebra.h"
-#include "particles.h"
-#include "grid.h"
-#include "app/app_state.h"
-#include "systems/camera_system.h"
-#include "systems/render_system.h"
-#include "systems/hud_system.h"
-#include "systems/input_system.h"
-
-#include "helpers.h"
 
 unsigned int MakeShader(const std::string &vertexFilepath, const std::string &fragmentFilepath);
 unsigned int MakeModule(const std::string &filepath, unsigned int moduleType);
-void Reset(Particles &particles);
 
 void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
   AppState* appState = static_cast<AppState*>(glfwGetWindowUserPointer(window));
@@ -119,7 +107,7 @@ int main() {
   glfwGetWindowContentScale(window, &xScale, &yScale);
 
   float radiusPx;
-  Reset(particles);
+  particles.Reset(smoothingRadius);
 
   particleMesh.SetupInstanceBuffers(60000); //TODO: refactor out
 
@@ -130,7 +118,6 @@ int main() {
 
     DrawHUD(particles, simulationControl);    
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     radiusPx = radiusLogical * xScale;
 
@@ -138,27 +125,14 @@ int main() {
     float dtMeasured = static_cast<float>(now - lastTime);
     lastTime = now;
     dtMeasured = std::min(dtMeasured, 1.0f / 60.0f);
-    float dtToSim = 0.0f;
-
-    if (simulationControl.isReset) {
-      Reset(particles);
-      simulationControl.isReset = false;
-      simulationControl.isPaused = false;
-      simulationControl.isStepping = false;
-    }
-
-    if (!simulationControl.isPaused) {
-      dtToSim = dtMeasured;
-    } else if (simulationControl.isStepping) {
-      dtToSim = 1.0f / 60.0f;
-      simulationControl.isStepping = false;
-    }
 
     Vec3 mouseRayOrigin = {0.0f, 0.0f, 0.0f};
     Vec3 mouseRayDir = {0.0f, 0.0f, 0.0f};
     float mouseStrength = 0.0f;
 
     CameraState cameraState = ComputeViewMatrix(camera);
+
+    float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
 
     if ((inputState.isPushing || inputState.isPulling) && !ImGui::GetIO().WantCaptureMouse) {
       double xPos, yPos;
@@ -291,7 +265,3 @@ unsigned int MakeModule(const std::string &filepath, unsigned int moduleType)
   return shaderModule;
 }
 
-void Reset(Particles &particles)
-{
-  particles.Reset(smoothingRadius);
-}
