@@ -11,7 +11,6 @@ add_library(
   fluid_core
   src/particles.cpp
   src/linear_algebra.h
-  src/colors.h
   src/cell.h
   src/cell.cpp
   src/particle_config.h
