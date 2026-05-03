@@ -10,12 +10,27 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(
   fluid_core
   src/particles.cpp
-  src/linear_algebra.cpp
-  src/colors.h
+  src/linear_algebra.h
   src/cell.h
   src/cell.cpp
   src/particle_config.h
   src/particle_config.cpp
+  src/line_renderer.h
+  src/line_renderer.cpp
+  src/geometry.h
+  src/geometry.cpp
+  src/systems/camera_system.h
+  src/systems/camera_system.cpp
+  src/systems/camera_system.h
+  src/systems/camera_system.cpp
+  src/systems/hud_system.h
+  src/systems/hud_system.cpp
+  src/systems/input_system.h
+  src/systems/input_system.cpp
+  src/systems/control_system.h
+  src/systems/control_system.cpp
+  src/systems/raycasting_system.h
+  src/systems/raycasting_system.cpp
   dependencies/imgui/imgui.cpp
   dependencies/imgui/imgui_demo.cpp
   dependencies/imgui/imgui_draw.cpp
@@ -63,12 +78,27 @@ if(NOT BUILD_BENCHMARKS)
   add_executable(fluid-sim
     src/main.cpp
     src/glad.c
-    src/triangle_mesh.cpp
-    src/grid.cpp
+    src/particle_mesh.cpp
     src/cell.h
     src/cell.cpp
+    src/line_renderer.h
+    src/line_renderer.cpp
+    src/geometry.h
+    src/geometry.cpp
     src/particle_config.h
     src/particle_config.cpp
+    src/systems/camera_system.h
+    src/systems/camera_system.cpp
+    src/systems/render_system.h
+    src/systems/render_system.cpp
+    src/systems/hud_system.h
+    src/systems/hud_system.cpp
+    src/systems/input_system.h
+    src/systems/input_system.cpp
+    src/systems/control_system.h
+    src/systems/control_system.cpp
+    src/systems/raycasting_system.h
+    src/systems/raycasting_system.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE

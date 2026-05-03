@@ -8,5 +8,5 @@ void main(){
   float dist = length(fragPos.xz);
   float mask = 1.0 - smoothstep(3.0, 7.0, dist); 
   
-  fragColor = vec4(0.2, 0.2, 0.2, mask);
+  fragColor = vec4(0.3, 0.3, 0.3, mask);
 }
