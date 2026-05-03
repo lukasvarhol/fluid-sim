@@ -28,5 +28,5 @@
 #include "systems/hud_system.h"
 #include "systems/input_system.h"
 #include "systems/control_system.h"
-
+#include "systems/raycasting_system.h"
 #include "helpers.h"

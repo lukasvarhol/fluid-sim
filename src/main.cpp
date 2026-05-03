@@ -87,15 +87,13 @@ int main() {
   Particles particles(numParticles, smoothingRadius);
 
   ParticleMesh particleMesh;
-
   unsigned int particleShader = MakeShader(
 					   "src/shaders/vertex.glsl",
 					   "src/shaders/fragment.glsl");
-
+  Grid grid(50, 0.2f, -1.0f); 
   unsigned int gridShader = MakeShader(
 				       "src/shaders/grid_vertex.glsl",
 				       "src/shaders/grid_fragment.glsl");
-  Grid grid(50, 0.2f, -1.0f); 
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -118,7 +116,6 @@ int main() {
 
     DrawHUD(particles, simulationControl);    
 
-
     radiusPx = radiusLogical * xScale;
 
     double now = glfwGetTime();
@@ -126,64 +123,17 @@ int main() {
     lastTime = now;
     dtMeasured = std::min(dtMeasured, 1.0f / 60.0f);
 
-    Vec3 mouseRayOrigin = {0.0f, 0.0f, 0.0f};
-    Vec3 mouseRayDir = {0.0f, 0.0f, 0.0f};
-    float mouseStrength = 0.0f;
-
     CameraState cameraState = ComputeViewMatrix(camera);
 
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
 
-    if ((inputState.isPushing || inputState.isPulling) && !ImGui::GetIO().WantCaptureMouse) {
-      double xPos, yPos;
-      glfwGetCursorPos(window, &xPos, &yPos);
-      int winW, winH;
-      glfwGetWindowSize(window, &winW, &winH);
-
-      float xNDC = (float)((xPos / winW) * 2.0 - 1.0);
-      float yNDC = (float)(1.0 - (yPos / winH) * 2.0);
-
-      float fov = 45.0f * PI / 180.0f;
-      float aspect = (float)winW / winH;
-      float tanHalfFOV = tan(fov / 2.0f);
-
-      Vec3 rayView = {
-	xNDC * aspect * tanHalfFOV,
-	yNDC * tanHalfFOV,
-	-1.0f
-      };
-      // transform ray to world space using inverse view
-      Mat4 invView = InverseView(cameraState.view);
-
-      Vec3 rayWorld = {
-	invView.entries[0] * rayView.x +
-	invView.entries[4] * rayView.y +
-	invView.entries[8] * rayView.z,
-	invView.entries[1] * rayView.x +
-	invView.entries[5] * rayView.y +
-	invView.entries[9] * rayView.z,
-	invView.entries[2] * rayView.x +
-	invView.entries[6] * rayView.y +
-	invView.entries[10] * rayView.z,
-      };
-      float len = rayWorld.Magnitude();
-      rayWorld = rayWorld * (1.0f / len);
-
-      Vec3 rayOrigin = cameraState.position;
-
-      float t = -rayOrigin.z / rayWorld.z;
-      float worldX = rayOrigin.x + t * rayWorld.x;
-      float worldY = rayOrigin.y + t * rayWorld.y;
-
-      mouseRayOrigin = cameraState.position;
-      mouseRayDir = rayWorld;
-      mouseStrength = inputState.isPulling ? pullStrength : pushStrength;
-    }
-
+    MouseRay mouseRay = MouseRaycast(inputState, cameraState, window);
+    
     if (dtToSim > 0)
       {
-	particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
-			 viewport.screenHeight, mouseRayOrigin, mouseRayDir, mouseStrength);
+      particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
+                       viewport.screenHeight, mouseRay.origin,
+                       mouseRay.direction, mouseRay.strength);
       }
 
     Render(cameraState, viewport, particles, particleMesh,
