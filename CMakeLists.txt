@@ -15,6 +15,10 @@ add_library(
   src/cell.cpp
   src/particle_config.h
   src/particle_config.cpp
+  src/line_renderer.h
+  src/line_renderer.cpp
+  src/geometry.h
+  src/geometry.cpp
   src/systems/camera_system.h
   src/systems/camera_system.cpp
   src/systems/camera_system.h
@@ -75,9 +79,12 @@ if(NOT BUILD_BENCHMARKS)
     src/main.cpp
     src/glad.c
     src/particle_mesh.cpp
-    src/grid.cpp
     src/cell.h
     src/cell.cpp
+    src/line_renderer.h
+    src/line_renderer.cpp
+    src/geometry.h
+    src/geometry.cpp
     src/particle_config.h
     src/particle_config.cpp
     src/systems/camera_system.h

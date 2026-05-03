@@ -87,14 +87,26 @@ int main() {
   Particles particles(numParticles, smoothingRadius);
 
   ParticleMesh particleMesh;
-  unsigned int particleShader = MakeShader(
-					   "src/shaders/vertex.glsl",
+  unsigned int particleShader = MakeShader("src/shaders/vertex.glsl",
 					   "src/shaders/fragment.glsl");
-  Grid grid(50, 0.2f, -1.0f); 
-  unsigned int gridShader = MakeShader(
-				       "src/shaders/grid_vertex.glsl",
-				       "src/shaders/grid_fragment.glsl");
 
+  std::vector<SceneObject> sceneObjects;
+
+  LineRenderer gridRenderer(BuildGridLines(50, 0.2f, -1.0f));
+  LineRenderer boundingBoxRenderer(BuildBoundingBox());
+  
+  SceneObject grid;
+  grid.shader = MakeShader("src/shaders/wireframe_vertex.glsl",
+                           "src/shaders/wireframe_fragment.glsl");
+  grid.renderer = &gridRenderer;
+  sceneObjects.push_back(grid);
+
+  SceneObject boundingBox;
+  boundingBox.shader = MakeShader("src/shaders/wireframe_vertex.glsl",
+                                  "src/shaders/wireframe_fragment.glsl");
+  boundingBox.renderer = &boundingBoxRenderer;
+  sceneObjects.push_back(boundingBox);
+			      
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -137,7 +149,7 @@ int main() {
       }
 
     Render(cameraState, viewport, particles, particleMesh,
-	   grid, particleShader, gridShader, radiusLogical, xScale);
+	   particleShader, sceneObjects, radiusLogical, xScale);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -145,7 +157,6 @@ int main() {
     glfwSwapBuffers(window);
   }
   glDeleteProgram(particleShader);
-  glDeleteProgram(gridShader);
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

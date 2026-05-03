@@ -2,8 +2,9 @@
 #include <glad/glad.h>
 
 void Render(const CameraState &cameraState, const Viewport &viewport,
-            Particles &particles, ParticleMesh &particleMesh, Grid &grid,
-            unsigned int particleShader, unsigned int gridShader,
+            Particles &particles, ParticleMesh &particleMesh,
+            unsigned int particleShader,
+            const std::vector<SceneObject>& sceneObjects,
             float radiusLogical, float xScale) {
 
 
@@ -42,5 +43,8 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
 
   particleMesh.UpdateInstanceData(posData, velData);
   particleMesh.DrawInstanced((int)particles.positions.size());
-  grid.draw(gridShader, proj.entries, cameraState.view.entries);
+
+  for (const auto& obj : sceneObjects) {
+    obj.renderer->Draw(obj.shader, proj.entries, cameraState.view.entries);
+  }
 }

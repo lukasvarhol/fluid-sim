@@ -4,9 +4,11 @@
 #include "../particles.h"
 #include "../particle_mesh.h"
 #include "../app/viewport.h"
-#include "../grid.h"
+#include "../line_renderer.h"
+#include "../app/scene_manager.h"
 
 void Render(const CameraState &cameraState, const Viewport &viewport,
-            Particles &particles, ParticleMesh &particleMesh, Grid &grid,
-            unsigned int particleShader, unsigned int gridShader,
+            Particles &particles, ParticleMesh &particleMesh,
+            unsigned int particleShader,
+            const std::vector<SceneObject>& sceneObjects,
             float radiusLogical, float xScale);
