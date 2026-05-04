@@ -1,0 +1,31 @@
+#pragma once
+
+#include <string>
+#include <chrono>
+
+enum Phase {
+  GRAVITY_PREDICT,
+  BUILD_GRID,
+  BUILD_NEIGHBOURS,
+  SOLVER,
+  VELOCITY_UPDATE,
+  VISCOSITY,
+  VORTICITY
+};
+
+class Profiler {
+public:
+  class Timer;
+
+}
+
+class Profiler::Timer {
+public:
+  Timer(Phasse phase);
+  ~Timer();
+
+private:
+  int timerId;
+  std::chrono::microseconds duration;
+}
+  
