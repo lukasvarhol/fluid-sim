@@ -1,4 +1,5 @@
 #include "config.h"
+#include <string>
 
 unsigned int MakeShader(const std::string &vertexFilepath, const std::string &fragmentFilepath);
 unsigned int MakeModule(const std::string &filepath, unsigned int moduleType);
@@ -15,7 +16,25 @@ static void glfwErrorCallback(int error, const char *description)
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  if (argc >= 2) {
+    if (argc != 10 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000\n");
+    else {
+      std::string commit;
+      std::string backend;
+      unsigned int particles;
+      unsigned int frames;
+      for (int i = 2; i < argc; i+=2) {
+        if (std::strcmp(argv[i], "-c") == 0)
+          commit = argv[i + 1];
+        if (std::strcmp(argv[i], "-b") == 0)
+          backend = argv[i + 1];
+        if (std::strcmp(argv[i], "-p") == 0)
+          particles = std::stoi(argv[i + 1]);
+	if(std::strcmp(argv[i],"-f") == 0) frames = std::stoul(argv[i+1]);
+      }
+    }
+  }
   Camera camera;
   InputState inputState;
   SimulationControl simulationControl;
