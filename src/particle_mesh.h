@@ -1,14 +1,14 @@
 #pragma once
 #include <vector>
 
-class TriangleMesh {
+class ParticleMesh {
 public:
-  TriangleMesh();
-  ~TriangleMesh();
-  void setupInstanceBuffers(int num_particles);
-  void updateInstanceData(const std::vector<float> &positions,
+  ParticleMesh();
+  ~ParticleMesh();
+  void SetupInstanceBuffers(int num_particles);
+  void UpdateInstanceData(const std::vector<float> &positions,
                           const std::vector<float> &velocities);
-  void drawInstanced(int num_particles);
+  void DrawInstanced(int num_particles);
     
 
 private:

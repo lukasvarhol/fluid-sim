@@ -1,7 +1,7 @@
-#include "triangle_mesh.h"
+#include "particle_mesh.h"
 #include <glad/glad.h>
 
-TriangleMesh::TriangleMesh() {
+ParticleMesh::ParticleMesh() {
     std::vector<float> positions = {
         -1.0f, -1.0f, 0.0f, 
          1.0f, -1.0f, 0.0f, 
@@ -32,7 +32,7 @@ TriangleMesh::TriangleMesh() {
     glBindVertexArray(0);
 }
 
-void TriangleMesh::setupInstanceBuffers(int num_particles){
+void ParticleMesh::SetupInstanceBuffers(int num_particles){
     glBindVertexArray(VAO);
 
     // instance positions
@@ -52,7 +52,7 @@ void TriangleMesh::setupInstanceBuffers(int num_particles){
     glVertexAttribDivisor(2, 1);
 }
 
-void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const std::vector<float>& velocities){
+void ParticleMesh::UpdateInstanceData(const std::vector<float>& positions, const std::vector<float>& velocities){
     glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(float), positions.data());
 
@@ -60,12 +60,12 @@ void TriangleMesh::updateInstanceData(const std::vector<float>& positions, const
     glBufferSubData(GL_ARRAY_BUFFER, 0, velocities.size() * sizeof(float), velocities.data());
 }
 
-void TriangleMesh::drawInstanced(int num_particles) {
+void ParticleMesh::DrawInstanced(int num_particles) {
     glBindVertexArray(VAO);
     glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0, num_particles);
 }
 
-TriangleMesh::~TriangleMesh() {
+ParticleMesh::~ParticleMesh() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
