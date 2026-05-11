@@ -18,7 +18,7 @@ enum Phase {
 };
 
 static const char *EnumToString[] = {
-  "gravity_predict", "build_grid", "build_nieghbours", "solver",
+  "gravity_predict", "build_grid", "build_neighbours", "solver",
   "velocity_update", "viscosity", "vorticity"
 };
 

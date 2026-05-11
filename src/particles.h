@@ -20,6 +20,7 @@
 
 extern bool isBenchmarking;
 extern int currentFrame;
+extern bool runParallel;
 
 struct Particles
 {
@@ -33,9 +34,13 @@ struct Particles
                 func(i);
         });
 #else
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.end(),
+    if (!runParallel) {
+      std::for_each(indices.begin(), indices.end(),
         [&](int i) { func(i); });
+    } else {
+      std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
+                    [&](int i) { func(i); });
+    }
 #endif
   }
 

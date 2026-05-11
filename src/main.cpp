@@ -2,6 +2,7 @@
 #include <string>
 
 bool isBenchmarking = false;
+bool runParallel = true;
 int currentFrame = 0; 
 
 unsigned int MakeShader(const std::string &vertexFilepath, const std::string &fragmentFilepath);
@@ -42,6 +43,9 @@ int main(int argc, char *argv[]) {
         printf("Missing required arguments\n");
 	return -1;
       }
+      if (backend == "cpu-sequential")
+        runParallel = false;
+      std::cout << runParallel << std::endl;
       std::string filepath = "benchmark/logs/" + commit + "-" + backend + "-" +
 	std::to_string(profilerParticles) + "-" + std::to_string(profilerFrames) + ".csv";
       Profiler::Init(filepath, profilerParticles, profilerFrames, backend,
@@ -58,6 +62,7 @@ int main(int argc, char *argv[]) {
       }
 
       Profiler::Write();
+      return 0;
     }
   }
   Camera camera;
