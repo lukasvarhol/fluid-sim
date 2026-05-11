@@ -18,8 +18,8 @@ enum Phase {
 };
 
 static const char *EnumToString[] = {
-    "gravity_predict", "build_grid", "build_nieghbours", "solver",
-    "velocity_update", "viscosity", "vorticity"
+  "gravity_predict", "build_grid", "build_nieghbours", "solver",
+  "velocity_update", "viscosity", "vorticity"
 };
 
 struct TimeCouple {
@@ -36,28 +36,29 @@ class Profiler {
   Profiler(const Profiler&) = delete;
   static Profiler &Get() { return instance_; }
   static std::vector<TimeCouple> &GetTimerManager() { return timerManager_; }
-  void Init(const std::string &filepath, const int numParticles,
-            const int numFrames, const std::string backend, const std::string commit) {
+  static void Init(const std::string &filepath, const int numParticles,
+		   const int numFrames, const std::string backend, const std::string commit) {
     filepath_ = filepath;
     numParticles_ = numParticles;
     numFrames_ = numFrames;
     backend_ = backend;
     commit_ = commit;
-    timerManager_.reserve(dataSize);
+    timerManager_.reserve(numFrames_ * 7);
   }
 
-  void Write() {
+  static void Write() {
     std::ofstream out(filepath_.c_str());
     out << "commit,backend,particle_count,phase,frame,elapsed_us" << std::endl;
     for (TimeCouple timer : timerManager_) {
-      out << commit_ << backend_
-          << numParticles_
+      out << commit_ << "," << backend_ << "," 
+          << numParticles_ << "," 
           << EnumToString[timer.phase] << "," << timer.frame << ","
           << (std::chrono::duration_cast<std::chrono::microseconds>(
 								    timer.stopTime - timer.startTime))
 	.count()
 	  << std::endl;
     }
+    std::cout << "printed" << std::endl;
   }
   
  private:
@@ -68,14 +69,15 @@ class Profiler {
   static int numFrames_;
   static std::string backend_;
   static std::string commit_;
-  int dataSize = numFrames_ * 7;
   static std::vector<TimeCouple> timerManager_; 
 
 };
 
 class Profiler::Timer {
  public:
-  Timer(Phase phase, unsigned int frame) {
+  Timer(Phase phase, unsigned int frame, bool isBenchmarking) {
+    active_ = isBenchmarking;
+    if (!active_) return;
     auto startTime = std::chrono::steady_clock::now();
     std::vector<TimeCouple>& timerManager = Profiler::GetTimerManager();
     Profiler::mtx.lock();
@@ -84,13 +86,15 @@ class Profiler::Timer {
     Profiler::mtx.unlock();
   }
   ~Timer() {
+    if (!active_) return;
     std::vector<TimeCouple> &timerManager = Profiler::GetTimerManager();
     Profiler::mtx.lock();
     timerManager.at(timerId).stopTime = std::chrono::steady_clock::now();
     Profiler::mtx.unlock();
   }
 
- private:
+private:
+  bool active_ = false;
   size_t timerId;
 };
   

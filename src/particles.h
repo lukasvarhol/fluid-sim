@@ -8,6 +8,7 @@
 #include "cell.h"
 #include <numeric>
 #include "particle_config.h"
+#include "../benchmark/profiler.h"
 
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
@@ -16,6 +17,9 @@
 #include <execution>
 #endif
 #include <algorithm>
+
+extern bool isBenchmarking;
+extern int currentFrame;
 
 struct Particles
 {

@@ -32,3 +32,4 @@
 #include "helpers.h"
 #include "geometry.h"
 #include "line_renderer.h"
+#include "../benchmark/profiler.h"
