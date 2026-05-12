@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
     }
   glEnable(GL_DEPTH_TEST);
 
-  std::array<float, 3> backgroundColor = rgbaNormalizer(0, 0, 0);
+  std::array<float, 3> backgroundColor = rgbaNormalizer(40, 40, 40);
   glClearColor(backgroundColor[0], backgroundColor[1], backgroundColor[2], 1.0f);
 
   Particles particles(numParticles, smoothingRadius);
