@@ -32,3 +32,10 @@ const float maxDv = 0.2f; // acceleration clamp
 
 // vorticity
 extern float vorticityEpsilon; // higher = more turbulence
+
+// trickler
+extern bool  tricklerMode;
+extern float tricklerSpawnRate; // particles per second
+extern float tricklerOriginX;
+extern float tricklerOriginY;
+extern float tricklerOriginZ;

@@ -1,5 +1,11 @@
 #include "particle_config.h"
 
+bool  tricklerMode      = false;
+float tricklerSpawnRate = 5.0f;
+float tricklerOriginX   = 0.0f;
+float tricklerOriginY   = 0.8f;
+float tricklerOriginZ   = 0.0f;
+
 float gravity        = -3.5f;
 float xsphC          =  0.1f;
 float vorticityEpsilon = 1000.0f;

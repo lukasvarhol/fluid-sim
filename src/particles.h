@@ -35,16 +35,20 @@ struct Particles
         });
 #else
     if (!runParallel) {
-      std::for_each(indices.begin(), indices.end(),
+      std::for_each(indices.begin(), indices.end() + n,
         [&](int i) { func(i); });
     } else {
-      std::for_each(std::execution::par_unseq, indices.begin(), indices.end(),
+      std::for_each(std::execution::par_unseq, indices.begin(), indices.end() + n,
                     [&](int i) { func(i); });
     }
 #endif
   }
 
   int numParticles;
+  int activeParticles;
+  int nextRecycleIdx  = 0;
+  float tricklerAccum = 0.0f;
+
   std::vector<Vec3>  positions;
   std::vector<Vec3>  predictedPositions;
   std::vector<Vec3>  velocities;
@@ -70,6 +74,7 @@ struct Particles
                 const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength);
   void Reset(float smoothingRadius);
   void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz);
+  void ResetTrickler();
 
 private:
   int   numCells1D;
@@ -89,6 +94,7 @@ private:
   float CalculateLambda(size_t particleIdx, float smoothingRadius);
   float EstimateRestDensity(float smoothingRadius);
   float Scorr(Vec3 pi, Vec3 pj, float h);
-  bool NeedsNeighbourRebuild();
-  inline int CellIndex(int cx, int cy, int cz) const; 
+  bool  NeedsNeighbourRebuild();
+  void  TickTrickler(float dt);
+  inline int CellIndex(int cx, int cy, int cz) const;
 };
