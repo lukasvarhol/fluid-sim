@@ -12,15 +12,15 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
 
   float radiusPx = radiusLogical * xScale;
 
-  int n = particles.numParticles;
+  int n = particles.activeParticles;
   std::vector<float> posData(n * 3);
   std::vector<float> velData(n * 3);
-  for (size_t i = 0; i < n; ++i)
+  for (int i = 0; i < n; ++i)
     {
       posData[3 * i]     = particles.positions[i].x;
       posData[3 * i + 1] = particles.positions[i].y;
       posData[3 * i + 2] = particles.positions[i].z;
-       
+
       velData[3 * i]     = particles.velocities[i].x;
       velData[3 * i + 1] = particles.velocities[i].y;
       velData[3 * i + 2] = particles.velocities[i].z;
@@ -42,7 +42,7 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
   glUniform3f(glGetUniformLocation(particleShader, "lightDir"), 0.6f, 0.8f, 1.0f);
 
   particleMesh.UpdateInstanceData(posData, velData);
-  particleMesh.DrawInstanced((int)particles.positions.size());
+  particleMesh.DrawInstanced(n);
 
   for (const auto& obj : sceneObjects) {
     obj.renderer->Draw(obj.shader, proj.entries, cameraState.view.entries);

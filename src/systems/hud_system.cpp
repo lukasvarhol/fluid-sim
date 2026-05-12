@@ -56,7 +56,24 @@ void DrawHUD(Particles &particles, SimulationControl& simulationControl) {
       ImGui::SliderFloat("Push Strength", &pushStrength, -100.0f, 0.0f);
       ImGui::SliderFloat("Pull Strength", &pullStrength, 0.0, 100.0f);
       ImGui::SliderFloat("Push Radius", &pushRadius, 0.0f, 1.0f);
-      ImGui::SliderFloat("Pull Radius", &pullRadius, 0.0f, 1.0f); 
+      ImGui::SliderFloat("Pull Radius", &pullRadius, 0.0f, 1.0f);
+    }
+
+    if (ImGui::CollapsingHeader("Trickler")) {
+      bool prevMode = tricklerMode;
+      ImGui::Checkbox("Trickler Mode", &tricklerMode);
+      if (tricklerMode && !prevMode) {
+        particles.ResetTrickler();
+      } else if (!tricklerMode && prevMode) {
+        particles.activeParticles = particles.numParticles;
+      }
+      if (tricklerMode) {
+        ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate, 0.1f, 200.0f);
+        ImGui::SliderFloat("Origin X", &tricklerOriginX, -1.0f, 1.0f);
+        ImGui::SliderFloat("Origin Y", &tricklerOriginY, -1.0f, 1.0f);
+        ImGui::SliderFloat("Origin Z", &tricklerOriginZ, -1.0f, 1.0f);
+        ImGui::Text("Active: %d / %d", particles.activeParticles, particles.numParticles);
+      }
     }
     ImGui::End();
   }
