@@ -23,8 +23,9 @@ Particles::Particles(int n, float smoothingRadius)
   wDq      = poly6 * sq * sq * sq;
   skinRadius = 0.3f * smoothingRadius;
 
-  numParticles = n;
-  numCells1D   = (int)std::ceil(2.0f / smoothingRadius);
+  numParticles    = n;
+  activeParticles = n;
+  numCells1D      = (int)std::ceil(2.0f / smoothingRadius);
 
   const int numCells = numCells1D * numCells1D * numCells1D;   // 3-D grid
   gridData.reserve(numParticles * 4);
@@ -101,7 +102,7 @@ void Particles::BuildGrid(float smoothingRadius)
   std::fill(gridCount.begin(), gridCount.end(), 0);
 
   // pass 1: count
-  for (int i = 0; i < numParticles; ++i) {
+  for (int i = 0; i < activeParticles; ++i) {
     Cell c = PositionToCoord(predictedPositions[i], smoothingRadius);
     ++gridCount[CellIndex(c.x, c.y, c.z)];
   }
@@ -114,7 +115,7 @@ void Particles::BuildGrid(float smoothingRadius)
   gridData.resize(gridStart[numCells]);
   std::vector<int> insertPos(gridStart.begin(), gridStart.begin() + numCells);
 
-  for (int i = 0; i < numParticles; ++i) {
+  for (int i = 0; i < activeParticles; ++i) {
     Cell c = PositionToCoord(predictedPositions[i], smoothingRadius);
     int idx = CellIndex(c.x, c.y, c.z);
     gridData[insertPos[idx]++] = i;
@@ -124,7 +125,7 @@ void Particles::BuildGrid(float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::BuildNeighbours(float smoothingRadius)
 {
-  ParallelFor(numParticles, [&](int i) {
+  ParallelFor(activeParticles, [&](int i) {
     int count = 0;
     int *myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
     Cell cell = PositionToCoord(predictedPositions[i], smoothingRadius);
@@ -191,6 +192,9 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 		       const int g_fb_w, const int g_fb_h,
 		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength)
 {
+  if (tricklerMode)
+    TickTrickler(dt);
+
   const float mouseRadius  = mouseStrength > 0.0f ? pushRadius : pullRadius;
   const float mouseRadius2 = mouseRadius * mouseRadius;
 
@@ -198,24 +202,24 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(GRAVITY_PREDICT, currentFrame, isBenchmarking);
     oldPositions = positions;
-    for (int i = 0; i < numParticles; ++i) {
+    for (int i = 0; i < activeParticles; ++i) {
     
       velocities[i] += Vec3{0.0f, gravity, 0.0f} * dt;   // gravity along –Y
 
       if (mouseStrength != 0.0f) {
-	Vec3  toParticle = positions[i] - rayOrigin;
-	// project onto ray, then get perpendicular distance
-	float along      = toParticle.Dot(rayDir);
-	Vec3  closest    = rayOrigin + rayDir * along;
-	Vec3  perp       = positions[i] - closest;
-	float d2         = perp.Dot(perp);
+	      Vec3  toParticle = positions[i] - rayOrigin;
+	      // project onto ray, then get perpendicular distance
+	      float along      = toParticle.Dot(rayDir);
+	      Vec3  closest    = rayOrigin + rayDir * along;
+	      Vec3  perp       = positions[i] - closest;
+	      float d2         = perp.Dot(perp);
 
-	if (d2 < mouseRadius2 && d2 > 1e-6f) {
-	  float d       = std::sqrt(d2);
-	  float falloff = 1.0f - (d / mouseRadius);
-	  Vec3  dir     = perp * (1.0f / d);   // push/pull away from ray axis
-	  velocities[i] += dir * (mouseStrength * falloff * dt);
-	}
+	      if (d2 < mouseRadius2 && d2 > 1e-6f) {
+	        float d       = std::sqrt(d2);
+	        float falloff = 1.0f - (d / mouseRadius);
+	        Vec3  dir     = perp * (1.0f / d);   // push/pull away from ray axis
+	        velocities[i] += dir * (mouseStrength * falloff * dt);
+	      }
       }
       predictedPositions[i] = positions[i] + velocities[i] * dt;
     }
@@ -238,35 +242,35 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(SOLVER, currentFrame, isBenchmarking);
     for (int iter = 0; iter < numIterations; ++iter) {
-      ParallelFor(numParticles, [&](int i) {
-	allLambdas[i] = CalculateLambda(i, smoothingRadius);
+      ParallelFor(activeParticles, [&](int i) {
+	      allLambdas[i] = CalculateLambda(i, smoothingRadius);
       });
 
-      ParallelFor(numParticles, [&](int i) {
-	Vec3        sum = {0.0f, 0.0f, 0.0f};
-	const Vec3& pi  = predictedPositions[i];
+      ParallelFor(activeParticles, [&](int i) {
+	      Vec3        sum = {0.0f, 0.0f, 0.0f};
+	      const Vec3& pi  = predictedPositions[i];
 
-	int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
-	for (int k = 0; k < neighbourCount[i]; ++k) {
-	  int j = myNeighbours[k];
-	  if (j == i) continue;
+	      int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+	      for (int k = 0; k < neighbourCount[i]; ++k) {
+	        int j = myNeighbours[k];
+	        if (j == i) continue;
 
-	  Vec3  diff = pi - predictedPositions[j];
-	  float d2   = diff.Dot(diff);
-	  if (d2 < 1e-12f || d2 >= h2) continue;
+	        Vec3  diff = pi - predictedPositions[j];
+	        float d2   = diff.Dot(diff);
+	        if (d2 < 1e-12f || d2 >= h2) continue;
 
-	  float d   = std::sqrt(d2);
-	  float s   = spiky * (smoothingRadius - d) * (smoothingRadius - d) / d;
-	  float corr       = Scorr(pi, predictedPositions[j], smoothingRadius);
-	  float lambdaSum  = allLambdas[i] + allLambdas[j] + corr;
-	  sum += diff * (s * lambdaSum);
-	}
-	deltas[i] = sum / restDensity;
+	        float d   = std::sqrt(d2);
+	        float s   = spiky * (smoothingRadius - d) * (smoothingRadius - d) / d;
+	        float corr       = Scorr(pi, predictedPositions[j], smoothingRadius);
+	        float lambdaSum  = allLambdas[i] + allLambdas[j] + corr;
+	        sum += diff * (s * lambdaSum);
+	      }
+	      deltas[i] = sum / restDensity;
       });
 
-      ParallelFor(numParticles, [&](int i) {
-	predictedPositions[i] += deltas[i];
-	ClampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
+      ParallelFor(activeParticles, [&](int i) {
+	      predictedPositions[i] += deltas[i];
+	      ClampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
       });
     }
   }
@@ -274,7 +278,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   // 4. velocity update
   {
     Profiler::Timer timer(VELOCITY_UPDATE, currentFrame, isBenchmarking);
-    ParallelFor(numParticles, [&](int i) {
+    ParallelFor(activeParticles, [&](int i) {
       velocities[i] = (predictedPositions[i] - positions[i]) / dt;
       positions[i] = predictedPositions[i];
     });
@@ -286,87 +290,86 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(VISCOSITY, currentFrame, isBenchmarking);
     
-    ParallelFor(numParticles, [&](int i) {
+    ParallelFor(activeParticles, [&](int i) {
       Vec3  xsph = {0.0f, 0.0f, 0.0f};
       float wSum = 0.0f;
 
       int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
       for (int k = 0; k < neighbourCount[i]; ++k) {
-	int j = myNeighbours[k];
-	if (j == i)
-	  continue;
+	      int j = myNeighbours[k];
+	      if (j == i)
+	        continue;
 
-	Vec3  diff = predictedPositions[i] - predictedPositions[j];
-	float d2   = diff.Dot(diff);
-	if (d2 >= h2)
-	  continue;
-
-	float sq = h2 - d2;
-	float w  = poly6 * sq * sq * sq;
-	xsph += (velocities[j] - velocities[i]) * w;
-	wSum += w;
+	      Vec3  diff = predictedPositions[i] - predictedPositions[j];
+	      float d2   = diff.Dot(diff);
+	      if (d2 >= h2)
+	        continue;
+  
+	      float sq = h2 - d2;
+	      float w  = poly6 * sq * sq * sq;
+	      xsph += (velocities[j] - velocities[i]) * w;
+	      wSum += w;
       }
-
       if (wSum > 1e-6f)
-	xsph = xsph * (1.0f / wSum);
+	      xsph = xsph * (1.0f / wSum);
 
       Vec3  dv  = xsph * xsphC;
       float mag = dv.Magnitude();
       if (mag > maxDv)
-	dv = dv * (maxDv / mag);
-
+	      dv = dv * (maxDv / mag);
+      
       newVelocities[i] = velocities[i] + dv;
     });
   }
-
+  
   // 6. Vorticity confinement
   // Pass 1: compute vorticity
   {
     Profiler::Timer timer(VORTICITY, currentFrame, isBenchmarking);
-    ParallelFor(numParticles, [&](int i) {
+    ParallelFor(activeParticles, [&](int i) {
       Vec3 omega = {0.0f, 0.0f, 0.0f};
       const Vec3& vi    = newVelocities[i];
 
       int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
       for (int k = 0; k < neighbourCount[i]; ++k) {
-	int j = myNeighbours[k];
-	if (j == i) continue;
+	      int j = myNeighbours[k];
+	      if (j == i) continue;
 
-	Vec3  diff = predictedPositions[i] - predictedPositions[j];
-	float d2   = diff.Dot(diff);
-	if (d2 < 1e-12f || d2 >= h2) continue;
+	      Vec3  diff = predictedPositions[i] - predictedPositions[j];
+	      float d2   = diff.Dot(diff);
+	      if (d2 < 1e-12f || d2 >= h2) continue;
 
-	float d     = std::sqrt(d2);
-	float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
-	Vec3  gradW = diff * s;      
-	Vec3 vij = newVelocities[j] - vi;
+	      float d     = std::sqrt(d2);
+	      float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
+	      Vec3  gradW = diff * s;      
+	      Vec3 vij = newVelocities[j] - vi;
        
-	omega.x += vij.y * gradW.z - vij.z * gradW.y;
-	omega.y += vij.z * gradW.x - vij.x * gradW.z;
-	omega.z += vij.x * gradW.y - vij.y * gradW.x;
+	      omega.x += vij.y * gradW.z - vij.z * gradW.y;
+	      omega.y += vij.z * gradW.x - vij.x * gradW.z;
+	      omega.z += vij.x * gradW.y - vij.y * gradW.x;
       }
       vorticity[i] = omega;
     });
 
-    // Pass 2: apply vorticity confinement force 
-    ParallelFor(numParticles, [&](int i) {
-      Vec3 eta = {0.0f, 0.0f, 0.0f};
+  // Pass 2: apply vorticity confinement force
+  ParallelFor(activeParticles, [&](int i) {
+    Vec3 eta = {0.0f, 0.0f, 0.0f};
 
       int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
       for (int k = 0; k < neighbourCount[i]; ++k) {
-	int j = myNeighbours[k];
-	if (j == i) continue;
+	      int j = myNeighbours[k];
+	      if (j == i) continue;
 
-	Vec3  diff = predictedPositions[i] - predictedPositions[j];
-	float d2   = diff.Dot(diff);
-	if (d2 < 1e-12f || d2 >= h2) continue;
+	      Vec3  diff = predictedPositions[i] - predictedPositions[j];
+	      float d2   = diff.Dot(diff);
+	      if (d2 < 1e-12f || d2 >= h2) continue;
 
-	float d     = std::sqrt(d2);
-	float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
-	Vec3  gradW = diff * s;
+	      float d     = std::sqrt(d2);
+	      float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
+	      Vec3  gradW = diff * s;
 
-	float omegaMag = vorticity[j].Magnitude();
-	eta += gradW * omegaMag;
+	      float omegaMag = vorticity[j].Magnitude();
+	      eta += gradW * omegaMag;
       }
 
       float etaMag = eta.Magnitude();
@@ -376,9 +379,9 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
       const Vec3& omega = vorticity[i];
       Vec3 f_vorticity = {
-	N.y * omega.z - N.z * omega.y,
-	N.z * omega.x - N.x * omega.z,
-	N.x * omega.y - N.y * omega.x
+	      N.y * omega.z - N.z * omega.y,
+	      N.z * omega.x - N.x * omega.z,
+	      N.x * omega.y - N.y * omega.x
       };
       newVelocities[i] += f_vorticity * (vorticityEpsilon * dt);
     });
@@ -439,10 +442,18 @@ void Particles::Reset(float smoothingRadius)
   std::fill(gridCount.begin(),      gridCount.end(),      0);
   std::fill(neighbourCount.begin(), neighbourCount.end(), 0);
 
+  activeParticles = numParticles;
   InitialiseParticles(numParticles, initSpacing);
   BuildGrid(smoothingRadius);
   BuildNeighbours(smoothingRadius);
+  positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
+
+  if (tricklerMode) {
+    activeParticles = 0;
+    nextRecycleIdx  = 0;
+    tricklerAccum   = 0.0f;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -466,10 +477,42 @@ float Particles::Scorr(Vec3 pi, Vec3 pj, float h)
 }
 
 // ---------------------------------------------------------------------------
+void Particles::TickTrickler(float dt)
+{
+  if (tricklerSpawnRate <= 0.0f) return;
+
+  tricklerAccum += dt;
+  const float interval = 1.0f / tricklerSpawnRate;
+  const Vec3  origin{tricklerOriginX, tricklerOriginY, tricklerOriginZ};
+
+  while (tricklerAccum >= interval) {
+    tricklerAccum -= interval;
+    int idx;
+    if (activeParticles < numParticles) {
+      idx = activeParticles++;
+    } else {
+      idx = nextRecycleIdx;
+      nextRecycleIdx = (nextRecycleIdx + 1) % numParticles;
+    }
+    positions[idx]          = origin;
+    predictedPositions[idx] = origin;
+    velocities[idx]         = {0.0f, 0.0f, 0.0f};
+  }
+}
+
+// ---------------------------------------------------------------------------
+void Particles::ResetTrickler()
+{
+  activeParticles = 0;
+  nextRecycleIdx  = 0;
+  tricklerAccum   = 0.0f;
+}
+
+// ---------------------------------------------------------------------------
 bool Particles::NeedsNeighbourRebuild()
 {
-  if (positionsAtLastBuild.size() != (size_t)numParticles) return true;
-  for (int i = 0; i < numParticles; ++i) {
+  if ((int)positionsAtLastBuild.size() < activeParticles) return true;
+  for (int i = 0; i < activeParticles; ++i) {
     Vec3 diff = predictedPositions[i] - positionsAtLastBuild[i];
     if (diff.Dot(diff) > skinRadius * skinRadius) return true;
   }
@@ -477,27 +520,27 @@ bool Particles::NeedsNeighbourRebuild()
 }
 
 // ---------------------------------------------------------------------------
-void Particles::ResizeParticles(int nNewParticles, float fSmoothingRadius,
+void Particles::ResizeParticles(int newParticles, float smoothingRadius,
 				float spacing, float ox, float oy, float oz)
 {
   initOffsetX = ox;
   initOffsetY = oy;
   initOffsetZ = oz;
   initSpacing  = spacing;
-  numParticles    = nNewParticles;
+  numParticles    = newParticles;
 
-  positions.clear();          positions.reserve(nNewParticles);
-  predictedPositions.clear(); predictedPositions.reserve(nNewParticles);
-  velocities.clear();         velocities.reserve(nNewParticles);
-  densities.clear();          densities.reserve(nNewParticles);
+  positions.clear();          positions.reserve(newParticles);
+  predictedPositions.clear(); predictedPositions.reserve(newParticles);
+  velocities.clear();         velocities.reserve(newParticles);
+  densities.clear();          densities.reserve(newParticles);
 
-  allLambdas.resize(nNewParticles);
-  deltas.resize(nNewParticles);
-  oldPositions.resize(nNewParticles);
-  vorticity.resize(nNewParticles, Vec3{0.0f, 0.0f, 0.0f});
-  neighbourData.resize(nNewParticles * MAX_NEIGHBOURS);
-  neighbourCount.resize(nNewParticles, 0);
-  indices.resize(nNewParticles);
+  allLambdas.resize(nNwParticles);
+  deltas.resize(newParticles);
+  oldPositions.resize(newParticles);
+  vorticity.resize(newParticles, Vec3{0.0f, 0.0f, 0.0f});
+  neighbourData.resize(newParticles * MAX_NEIGHBOURS);
+  neighbourCount.resize(newParticles, 0);
+  indices.resize(newParticles);
   std::iota(indices.begin(), indices.end(), 0);
 
   // Resize grid arrays for new nCells1D (smoothing radius unchanged here,
@@ -506,9 +549,16 @@ void Particles::ResizeParticles(int nNewParticles, float fSmoothingRadius,
   gridStart.assign(nCells + 1, 0);
   gridCount.assign(nCells, 0);
 
-  InitialiseParticles(nNewParticles, initSpacing);
-  BuildGrid(fSmoothingRadius);
-  BuildNeighbours(fSmoothingRadius);
+  activeParticles = newParticles;
+  InitialiseParticles(newParticles, initSpacing);
+  BuildGrid(smoothingRadius);
+  BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
-  restDensity = EstimateRestDensity(fSmoothingRadius);
+  restDensity = EstimateRestDensity(smoothingRadius);
+  
+  if (tricklerMode) {
+    activeParticles = 0;
+    nextRecycleIdx  = 0;
+    tricklerAccum   = 0.0f;
+  }
 }
