@@ -30,7 +30,17 @@ plt.rcParams.update({
     'axes.labelsize': 20,
     'xtick.labelsize': 20,
     'ytick.labelsize': 12,
-    'figure.titlesize': 20
+    'figure.titlesize': 20,
+    'figure.facecolor': "#282828",
+    'axes.facecolor': "#282828",
+    'axes.edgecolor': "#4c4c4c",
+    'grid.color': "#4c4c4c4c",
+    'text.color': '#CCCCCC',
+    'axes.labelcolor': '#CCCCCC',
+    'xtick.color': '#CCCCCC',
+    'ytick.color': '#CCCCCC',
+    'legend.facecolor': '#282828',
+    'legend.edgecolor': '#4c4c4c'
     })
 
 fig, ax = plt.subplots(figsize=(11,10))
@@ -43,12 +53,12 @@ width = 0.35
 
 ax.barh(x - width/2, sequential_data['elapsed_ms'], width,
         xerr=sequential_data['std']/1000,
-        label="cpu-sequential", color="#778873",
-        capsize=4)
+        label="cpu-sequential", color="#7550E3",
+        ecolor="#cccccc", capsize=4, alpha=0.8)
 ax.barh(x + width/2, parallel_data['elapsed_ms'], width,
         xerr=parallel_data['std']/1000,
-        label="cpu-parallel", color="#A1BC98",
-        capsize=4)
+        label="cpu-parallel", color="#50C7BB",
+        ecolor="#cccccc", capsize=4, alpha=0.8)
 ax.set_yticks(x)
 ax.set_yticklabels(phases)
 ax.set_xscale('log')

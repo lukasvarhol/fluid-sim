@@ -133,7 +133,6 @@ Windows:
 - [GLFW](https://www.glfw.org/) — windowing and input
 - [GLAD](https://glad.dav1d.de/) — OpenGL loader
 - [Dear ImGui](https://github.com/ocornut/imgui) — runtime HUD for parameter tuning
-- [Google Benchmark](https://github.com/google/benchmark) — fetched automatically via CMake FetchContent
 
 ---
 

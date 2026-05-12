@@ -534,7 +534,7 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   velocities.clear();         velocities.reserve(newParticles);
   densities.clear();          densities.reserve(newParticles);
 
-  allLambdas.resize(nNwParticles);
+  allLambdas.resize(newParticles);
   deltas.resize(newParticles);
   oldPositions.resize(newParticles);
   vorticity.resize(newParticles, Vec3{0.0f, 0.0f, 0.0f});
