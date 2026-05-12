@@ -35,10 +35,10 @@ struct Particles
         });
 #else
     if (!runParallel) {
-      std::for_each(indices.begin(), indices.end() + n,
+      std::for_each(indices.begin(), indices.begin() + n,
         [&](int i) { func(i); });
     } else {
-      std::for_each(std::execution::par_unseq, indices.begin(), indices.end() + n,
+      std::for_each(std::execution::par_unseq, indices.begin(), indices.begin() + n,
                     [&](int i) { func(i); });
     }
 #endif
