@@ -5,9 +5,10 @@
 /CMakeCache.txt
 /.vscode
 /.vs
+*.csv
 /out
 /CMakeSettings.json
-/benchmarks/.venv/
+/benchmark/.venv/
 /.DS_Store
 /docs/.DS_Store
 /file.md

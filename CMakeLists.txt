@@ -31,6 +31,8 @@ add_library(
   src/systems/control_system.cpp
   src/systems/raycasting_system.h
   src/systems/raycasting_system.cpp
+  benchmark/profiler.h
+  benchmark/profiler.cpp
   dependencies/imgui/imgui.cpp
   dependencies/imgui/imgui_demo.cpp
   dependencies/imgui/imgui_draw.cpp
@@ -99,6 +101,8 @@ if(NOT BUILD_BENCHMARKS)
     src/systems/control_system.cpp
     src/systems/raycasting_system.h
     src/systems/raycasting_system.cpp
+    benchmark/profiler.h
+    benchmark/profiler.cpp
   )
 
   target_include_directories(fluid-sim PRIVATE

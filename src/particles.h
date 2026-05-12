@@ -8,6 +8,7 @@
 #include "cell.h"
 #include <numeric>
 #include "particle_config.h"
+#include "../benchmark/profiler.h"
 
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
@@ -16,6 +17,10 @@
 #include <execution>
 #endif
 #include <algorithm>
+
+extern bool isBenchmarking;
+extern int currentFrame;
+extern bool runParallel;
 
 struct Particles
 {
@@ -29,9 +34,13 @@ struct Particles
                 func(i);
         });
 #else
-    std::for_each(std::execution::par_unseq,
-        indices.begin(), indices.begin() + n,
+    if (!runParallel) {
+      std::for_each(indices.begin(), indices.end() + n,
         [&](int i) { func(i); });
+    } else {
+      std::for_each(std::execution::par_unseq, indices.begin(), indices.end() + n,
+                    [&](int i) { func(i); });
+    }
 #endif
   }
 
