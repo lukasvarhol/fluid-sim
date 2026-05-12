@@ -84,4 +84,3 @@ plt.savefig("figures/scaling-behaviour.svg")
 
 plt.show()
 
-

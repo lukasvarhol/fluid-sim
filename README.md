@@ -8,17 +8,26 @@
 
 A real-time 3D fluid simulation built to practice C++, graphics programming, and performance optimisation. The simulation implements **Position Based Fluids (PBF)** based on [Macklin & Müller 2013](https://mmacklin.com/pbf_sig_preprint.pdf).
 
-The simulation runs on the CPU and currently sustains ~40,000 particles at real-time frame rates with a parallel backend (TBB or `std::execution::par_unseq`-capable stdlib). Performance was achieved through a series of targeted optimisations:
+## Performance
 
-- **Spatial hashing** with a flat grid structure reduces neighbour search from $O(N^2)$ to $O(kN)$, where $k$ is the average neighbour count within the smoothing radius
-- **Flat neighbour lists** with fixed-size per-particle buffers replace `vector<vector<T>>` for cache-friendly access and fully parallel neighbour construction
-- **Verlet neighbour list** skips neighbour rebuilds on frames where no particle has moved more than a skin radius threshold, reducing grid+neighbour cost from ~22ms to ~0.2–1.7ms per frame
-- **Parallelised solver loops** using `std::execution::par_unseq` across lambda, delta, XSPH, and vorticity passes
-- **Precomputed kernel constants** (`h2`, `h5`, `h8`, `poly6_norm`, `spiky_norm`) eliminate redundant `powf` calls in the inner loops
+The simulation was benchmarked using a custom profiler built into the binary, activated via the `--benchmark` flag. Each run measures per-phase wall-clock time across 2000 frames at a fixed timestep, logging raw per-frame timings to CSV for post-processing. The follwing results are true for running the benchmarks on an AMD Ryzen 9700X (8-core).
 
-Scaling and performance were verified through Google Benchmark across N=200 to N=4000, confirming $O(n)$ behaviour. Results are plotted in `benchmarks/benchmark_plotting.ipynb`.
+### Benchmark Hardware
+| | |
+|---|---|
+| CPU | AMD Ryzen 7 9700X (8-core, 16-thread) |
+| RAM | 64GB DDR5 5600 MT/s (Dual Channel) |
+| Compiler | MSVC |
+| Build type | Release |
+| OS | Windows |
 
-The plan is to port the simulation to CUDA for a 3D real-time implementation with semi-realistic rendering as part of a group project.
+### Scaling Behaviour
+
+![Scaling Behaviour](benchmark/figures/scaling-behaviour.svg)
+
+### Per-Phase Breakdown (N=20,000)
+
+![Per-Phase Breakdown](benchmark/figures/per-phase-breakdown.svg)
 
 ---
 
@@ -62,11 +71,9 @@ src/
       ├── vertex.txt
       └── fragment.txt
 benchmarks/
- ├── benchmark.cpp         # Google Benchmark tests
+ ├── profiler.*            # Runtime profiler Util
  ├── run_benchmarks.ps1    # Build + run script (Windows)
- ├── run_benchmarks.sh     # Build + run script (Unix)
- ├── benchmark_plotting.ipynb
- └── data/                 # Benchmark CSV results
+ └── logs/                 # Benchmark CSV results
 ```
 
 ---
@@ -117,13 +124,8 @@ cmake --build build --config Release
 ### Benchmarks
 Windows:
 ```powershell
-.\benchmarks\run_benchmarks.ps1
+.\benchmark\run_benchmarks.ps1
 ```
-Unix:
-```bash
-.\benchmarks\run_benchmarks.sh
-```
-
 ---
 
 ## Dependencies
