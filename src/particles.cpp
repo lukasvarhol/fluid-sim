@@ -497,6 +497,7 @@ void Particles::TickTrickler(float dt)
     positions[idx]          = origin;
     predictedPositions[idx] = origin;
     velocities[idx]         = {0.0f, 0.0f, 0.0f};
+    vorticity[idx]          = {0.0f, 0.0f, 0.0f};
   }
 }
 
