@@ -36,6 +36,7 @@ extern float vorticityEpsilon; // higher = more turbulence
 // trickler
 extern bool  tricklerMode;
 extern float tricklerSpawnRate; // particles per second
+extern float tricklerSpread;    // random offset radius around origin
 extern float tricklerOriginX;
 extern float tricklerOriginY;
 extern float tricklerOriginZ;
