@@ -1,7 +1,8 @@
 #include "particle_config.h"
 
 bool  tricklerMode      = false;
-float tricklerSpawnRate = 5.0f;
+float tricklerSpawnRate = 400.0f;
+float tricklerSpread    = 0.05f;
 float tricklerOriginX   = 0.0f;
 float tricklerOriginY   = 0.8f;
 float tricklerOriginZ   = 0.0f;
