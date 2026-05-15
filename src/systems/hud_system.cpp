@@ -68,7 +68,8 @@ void DrawHUD(Particles &particles, SimulationControl& simulationControl) {
         particles.activeParticles = particles.numParticles;
       }
       if (tricklerMode) {
-        ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate, 0.1f, 200.0f);
+        ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate, 0.1f, 1000.0f);
+        ImGui::SliderFloat("Spread", &tricklerSpread, 0.0f, 0.2f);
         ImGui::SliderFloat("Origin X", &tricklerOriginX, -1.0f, 1.0f);
         ImGui::SliderFloat("Origin Y", &tricklerOriginY, -1.0f, 1.0f);
         ImGui::SliderFloat("Origin Z", &tricklerOriginZ, -1.0f, 1.0f);

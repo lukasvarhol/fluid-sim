@@ -483,7 +483,7 @@ void Particles::TickTrickler(float dt)
 
   tricklerAccum += dt;
   const float interval = 1.0f / tricklerSpawnRate;
-  const Vec3  origin{tricklerOriginX, tricklerOriginY, tricklerOriginZ};
+  std::uniform_real_distribution<float> jitter(-tricklerSpread, tricklerSpread);
 
   while (tricklerAccum >= interval) {
     tricklerAccum -= interval;
@@ -494,9 +494,13 @@ void Particles::TickTrickler(float dt)
       idx = nextRecycleIdx;
       nextRecycleIdx = (nextRecycleIdx + 1) % numParticles;
     }
-    positions[idx]          = origin;
-    predictedPositions[idx] = origin;
+    Vec3 spawnPos{tricklerOriginX + jitter(rng),
+                  tricklerOriginY + jitter(rng),
+                  tricklerOriginZ + jitter(rng)};
+    positions[idx]          = spawnPos;
+    predictedPositions[idx] = spawnPos;
     velocities[idx]         = {0.0f, 0.0f, 0.0f};
+    vorticity[idx]          = {0.0f, 0.0f, 0.0f};
   }
 }
 

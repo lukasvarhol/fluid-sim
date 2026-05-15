@@ -17,6 +17,7 @@
 #include <execution>
 #endif
 #include <algorithm>
+#include <random>
 
 extern bool isBenchmarking;
 extern int currentFrame;
@@ -79,6 +80,7 @@ struct Particles
 private:
   int   numCells1D;
   float restDensity;
+  std::mt19937 rng{std::random_device{}()};
 
   std::vector<int> gridData;   
   std::vector<int> gridStart;  
