@@ -45,6 +45,7 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
   particleMesh.DrawInstanced(n);
 
   for (const auto& obj : sceneObjects) {
+    if (!obj.visible) continue;
     obj.renderer->Draw(obj.shader, proj.entries, cameraState.view.entries);
   }
 }

@@ -69,12 +69,14 @@ int main(int argc, char *argv[]) {
   InputState inputState;
   SimulationControl simulationControl;
   Viewport viewport;
+  EditorState editorState;
 
   AppState appState;
-  appState.camera = &camera;
-  appState.inputState = &inputState;
+  appState.camera            = &camera;
+  appState.inputState        = &inputState;
   appState.simulationControl = &simulationControl;
-  appState.viewport = &viewport;
+  appState.viewport          = &viewport;
+  appState.editorState       = &editorState;
 
   if(isBenchmarking) appState.simulationControl->isPaused = false;
 
@@ -137,6 +139,9 @@ int main(int argc, char *argv[]) {
 
   Particles particles(numParticles, smoothingRadius);
 
+  ObjectRenderer objectRenderer;
+  SetupObjectRenderer(objectRenderer);
+
   ParticleMesh particleMesh;
   unsigned int particleShader = MakeShader("src/shaders/vertex.glsl",
 					   "src/shaders/fragment.glsl");
@@ -145,18 +150,26 @@ int main(int argc, char *argv[]) {
 
   LineRenderer gridRenderer(BuildGridLines(50, 0.2f, -1.0f));
   LineRenderer boundingBoxRenderer(BuildBoundingBox());
-  
+  LineRenderer cellGridRenderer(BuildCellGridLines());
+
+  unsigned int wireframeShader = MakeShader("src/shaders/wireframe_vertex.glsl",
+                                            "src/shaders/wireframe_fragment.glsl");
+
   SceneObject grid;
-  grid.shader = MakeShader("src/shaders/wireframe_vertex.glsl",
-                           "src/shaders/wireframe_fragment.glsl");
-  grid.renderer = &gridRenderer;
+  grid.shader    = wireframeShader;
+  grid.renderer  = &gridRenderer;
   sceneObjects.push_back(grid);
 
   SceneObject boundingBox;
-  boundingBox.shader = MakeShader("src/shaders/wireframe_vertex.glsl",
-                                  "src/shaders/wireframe_fragment.glsl");
+  boundingBox.shader   = wireframeShader;
   boundingBox.renderer = &boundingBoxRenderer;
   sceneObjects.push_back(boundingBox);
+
+  SceneObject cellGridObj;
+  cellGridObj.shader   = wireframeShader;
+  cellGridObj.renderer = &cellGridRenderer;
+  sceneObjects.push_back(cellGridObj);
+  SceneObject& cellGridRef = sceneObjects.back(); // mutable ref for visibility toggle
 			      
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -174,21 +187,28 @@ int main(int argc, char *argv[]) {
 
   double lastTime = glfwGetTime();
 
+  float dtMeasured = 0.0f;
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-    DrawHUD(particles, simulationControl);    
-
-    radiusPx = radiusLogical * xScale;
-
     double now = glfwGetTime();
-    float dtMeasured = static_cast<float>(now - lastTime);
+    dtMeasured = static_cast<float>(now - lastTime);
     lastTime = now;
     dtMeasured = std::min(dtMeasured, 1.0f / 60.0f);
 
+    DrawHUD(particles, simulationControl, editorState, dtMeasured);
+
+    radiusPx = radiusLogical * xScale;
+
     CameraState cameraState = ComputeViewMatrix(camera);
 
+
+    bool wasReset = simulationControl.isReset;
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
+    if (wasReset) {
+if (editorState.resetObjectsOnR)
+        LoadDefaultScene(editorState);
+    }
 
     MouseRay mouseRay = MouseRaycast(inputState, cameraState, window);
     
@@ -197,10 +217,27 @@ int main(int argc, char *argv[]) {
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
                        mouseRay.direction, mouseRay.strength);
+      // Post-solve: push particles out of solid RG objects
+      ApplyObjectCollisions(particles.positions, particles.velocities,
+                            particles.activeParticles, editorState.objects);
       }
+
+    cellGridRef.visible = editorState.showGrid;
 
     Render(cameraState, viewport, particles, particleMesh,
 	   particleShader, sceneObjects, radiusLogical, xScale);
+
+    // Render solid RG objects, optional ghost preview, and cell overlays
+    {
+      float aspect = (float)viewport.screenWidth / (float)viewport.screenHeight;
+      Mat4 proj = Perspective(45.0f * PI / 180.0f, aspect, 0.1f, 100.0f);
+      RenderObjects(objectRenderer, editorState.objects,
+                    editorState.previewActive ? &editorState.previewObjects : nullptr,
+                    &editorState.grid,
+                    editorState.showSelectedCell,
+                    editorState.showOccupiedOutlines,
+                    cameraState.view, proj);
+    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -208,6 +245,7 @@ int main(int argc, char *argv[]) {
     glfwSwapBuffers(window);
   }
   glDeleteProgram(particleShader);
+  DestroyObjectRenderer(objectRenderer);
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();

@@ -6,7 +6,8 @@
 
 struct SceneObject {
   LineRenderer* renderer;
-  unsigned int shader;
+  unsigned int  shader;
+  bool          visible = true;
 };
 
 
