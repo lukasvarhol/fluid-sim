@@ -16,6 +16,7 @@ struct ObjectRenderer {
   unsigned int VAO    = 0;
   unsigned int VBO    = 0;
   unsigned int shader = 0;
+  unsigned int overlayShader = 0;
   std::vector<float> buffer; // rebuilt each frame on CPU
   std::unordered_map<std::string, MeshData> loadedMeshes;
 };

@@ -78,6 +78,44 @@ static unsigned int LinkSolidShader()
   return prog;
 }
 
+static unsigned int LinkOverlayShader()
+{
+  // Read shader files the same way main.cpp does
+  auto readFile = [](const char* path) -> std::string {
+    std::ifstream f(path);
+    if (!f.is_open()) {
+      std::cerr << "Cannot open: " << path << "\n";
+      return "";
+    }
+    std::stringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+  };
+
+  std::string vs = readFile("src/shaders/overlay_vertex.glsl");
+  std::string fs = readFile("src/shaders/overlay_fragment.glsl");
+
+  unsigned int v = CompileShaderModule(vs.c_str(), GL_VERTEX_SHADER);
+  unsigned int f = CompileShaderModule(fs.c_str(), GL_FRAGMENT_SHADER);
+
+  unsigned int prog = glCreateProgram();
+  glAttachShader(prog, v);
+  glAttachShader(prog, f);
+  glLinkProgram(prog);
+
+  int ok;
+  glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+  if (!ok) {
+    char log[512];
+    glGetProgramInfoLog(prog, 512, nullptr, log);
+    std::cerr << "ObjectRenderer link error: " << log << "\n";
+  }
+
+  glDeleteShader(v);
+  glDeleteShader(f);
+  return prog;
+}
+
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
@@ -85,6 +123,8 @@ static unsigned int LinkSolidShader()
 void SetupObjectRenderer(ObjectRenderer& r)
 {
   r.shader = LinkSolidShader();
+  r.overlayShader = LinkOverlayShader();
+  printf("overlayShader=%u\n", r.overlayShader);
 
   glGenVertexArrays(1, &r.VAO);
   glGenBuffers(1, &r.VBO);
@@ -294,17 +334,25 @@ void AppendObject(std::vector<float>& buf, const RGObject& obj,
 // Upload and draw
 // ---------------------------------------------------------------------------
 
-static void FlushBuffer(ObjectRenderer& r)
+static void FlushBuffer(ObjectRenderer& r, Vec3 color, float alpha)
 {
-  if (r.buffer.empty()) return;
-  glBindVertexArray(r.VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, r.VBO);
-  glBufferData(GL_ARRAY_BUFFER,
-	       (GLsizeiptr)(r.buffer.size() * sizeof(float)),
-	       r.buffer.data(), GL_DYNAMIC_DRAW);
-  int vertCount = (int)(r.buffer.size() / 10);
-  glDrawArrays(GL_TRIANGLES, 0, vertCount);
+  unsigned int tempVAO, tempVBO;
+  glGenVertexArrays(1, &tempVAO);
+  glGenBuffers(1, &tempVBO);
+  glBindVertexArray(tempVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, tempVBO);
+  glBufferData(GL_ARRAY_BUFFER, r.buffer.size() * sizeof(float), r.buffer.data(), GL_DYNAMIC_DRAW);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 40, (void*)0);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 40, (void*)(6 * sizeof(float)));
+  glEnableVertexAttribArray(2);
+  Mat4 identity = Mat4::Identity();
+  glUniformMatrix4fv(glGetUniformLocation(r.shader, "uModel"), 1, GL_FALSE, identity.entries);
+  glUniform4f(glGetUniformLocation(r.shader, "uColor"), color.x, color.y, color.z, alpha);
+  glDrawArrays(GL_TRIANGLES, 0, r.buffer.size() / 10);
   glBindVertexArray(0);
+  glDeleteVertexArrays(1, &tempVAO);
+  glDeleteBuffers(1, &tempVBO);
   r.buffer.clear();
 }
 
@@ -322,7 +370,6 @@ void RenderObjects(ObjectRenderer& r,
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glDepthMask(GL_FALSE);
 
   GLboolean depthMaskSaved;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskSaved);
@@ -351,33 +398,60 @@ void RenderObjects(ObjectRenderer& r,
       AppendObject(r.buffer, obj, col, 1.0f);
     }
   }
-  FlushBuffer(r);
 
-  // --- Pass 3: occupied cell outlines ---
-  if (showOccupiedOutlines && grid) {
+
+  if (previewObjs && !previewObjs->empty()) {
+    for (const RGObject& obj : *previewObjs) {
+      if (!obj.active) continue;
+      Vec3 col = ObjectColor(obj.type, false);
+      std::string meshKey = MeshKeyForType(obj.type);
+      if (!meshKey.empty() && r.loadedMeshes.count(meshKey)) {
+	Mat4 rot = CreateMatrixRotationXYZ(obj.rotation);
+	Mat4 trans = CreateMatrixTransform(obj.position);
+	Mat4 model = Mat4Multiply(trans, rot);
+	glUniform4f(glGetUniformLocation(r.shader, "uColor"), col.x, col.y, col.z, 0.3f);
+	DrawMesh(r.loadedMeshes[meshKey], model, view, projection, r.shader, cameraPos);
+      }
+    }
+  }
+
+    if (showOccupiedOutlines && grid) {
     Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
-    constexpr float h = CELL_SIZE * 0.5f - 0.002f; // 0.198
+    constexpr float h = CELL_SIZE * 0.5f - 0.002f;
     glDepthMask(GL_FALSE);
     for (int z = 0; z < GRID_Z; ++z)
       for (int y = 0; y < GRID_Y; ++y)
         for (int x = 0; x < GRID_X; ++x) {
-	  if (grid->GetCell(x, y, z).feature == Feature::EMPTY) continue;
-	  Vec3 c = grid->CellCenterWorld(x, y, z);
-	  AppendBox(r.buffer, c, {h, h, h}, identAxes, {0.8f, 0.8f, 0.8f}, 0.30f);
+          if (grid->GetCell(x, y, z).feature == Feature::EMPTY) continue;
+          Vec3 c = grid->CellCenterWorld(x, y, z);
+          AppendBox(r.buffer, c, {h, h, h}, identAxes, {0.8f, 0.8f, 0.8f}, 0.30f);
         }
-    FlushBuffer(r);
+    Mat4 identity = Mat4::Identity();
+    glUniformMatrix4fv(glGetUniformLocation(r.shader, "uModel"), 1, GL_FALSE, identity.entries);
+    glBindVertexArray(r.VAO);
+    // For occupied outlines:
+    //glUniform4f(glGetUniformLocation(r.shader, "uColor"), 0.8f, 0.8f, 0.8f, 0.30f);
+
+    // For selected cell:
+    //glUniform4f(glGetUniformLocation(r.shader, "uColor"), 1.0f, 0.9f, 0.1f, 0.25f);
+    FlushBuffer(r, {0.0f, 0.0f, 0.0f}, 0.0f);
     glDepthMask(GL_TRUE);
   }
 
   // --- Pass 4: selected-cell highlight (semi-transparent yellow) ---
   if (showSelectedCell && grid) {
-    Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
-    constexpr float h = CELL_SIZE * 0.5f - 0.001f; // 0.199 — avoids Z-fight with cell lines
-    Vec3 sel = grid->CellCenterWorld(grid->selX, grid->selY, grid->selZ);
-    glDepthMask(GL_FALSE);
-    AppendBox(r.buffer, sel, {h, h, h}, identAxes, {1.0f, 0.9f, 0.1f}, 0.25f);
-    FlushBuffer(r);
-    glDepthMask(GL_TRUE);
+    const CellFeature& cf = grid->GetCell(grid->selX, grid->selY, grid->selZ);
+    bool cellEmpty = cf.feature == Feature::EMPTY;
+    bool inPreview = previewObjs && !previewObjs->empty();
+    
+      Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
+      constexpr float h = CELL_SIZE * 0.5f - 0.001f;
+      Vec3 sel = grid->CellCenterWorld(grid->selX, grid->selY, grid->selZ);
+      glDisable(GL_DEPTH_TEST);
+      AppendBox(r.buffer, sel, {h, h, h}, identAxes, {1.0f, 0.9f, 0.1f}, 0.25f);
+      FlushBuffer(r, {0.8f, 0.8f, 0.8f}, 0.2f);
+      glEnable(GL_DEPTH_TEST);
+    
   }
 
   glDepthMask(depthMaskSaved);
