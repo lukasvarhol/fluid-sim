@@ -7,13 +7,13 @@ constexpr int   GRID_Y    = 5;
 constexpr int   GRID_Z    = 5;
 constexpr float CELL_SIZE = 2.0f / static_cast<float>(GRID_X); // 0.4
 
-enum class Feature     { Empty, Ramp, FlatSurface, Channel, Tube, Funnel, Container, LChannel };
+enum class Feature     { EMPTY, B_RAMP, T_RAMP, S_CHANNEL, L_CHANNEL };
 static constexpr int NUM_FEATURES = 8;
 enum class Orientation { North, East, South, West };
 // Yaw mapping: North=0, East=PI/2, South=PI, West=3*PI/2
 
 struct CellFeature {
-    Feature     feature = Feature::Empty;
+    Feature     feature = Feature::EMPTY;
     Orientation facing  = Orientation::North;
     int         variant = 0; // Ramp: 0=highest step in cell, 4=lowest step
 };

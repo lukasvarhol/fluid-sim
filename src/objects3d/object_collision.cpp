@@ -4,12 +4,21 @@
 #include <algorithm>
 #include <numeric>
 #include <execution>
+#include <atomic>
+// at file scope in object_collision.cpp:
+static std::atomic<int> projectionHits{0};
+
 
 // ---------------------------------------------------------------------------
 // Child-box definitions — must stay consistent with object_renderer.cpp
 // ---------------------------------------------------------------------------
 
-struct ChildBoxLocal { Vec3 localCenter; Vec3 halfExtents; };
+struct ChildBoxLocal {
+  Vec3 localCenter;
+  Vec3 halfExtents;
+};
+
+int GetProjectionHits() { return projectionHits.exchange(0); }
 
 static std::vector<ChildBoxLocal> GetChildBoxesLocal(const RGObject& obj)
 {
@@ -18,39 +27,13 @@ static std::vector<ChildBoxLocal> GetChildBoxesLocal(const RGObject& obj)
     std::vector<ChildBoxLocal> out;
 
     switch (obj.type) {
-    case RGObjectType::BOX:
-    case RGObjectType::RAMP:
-    case RGObjectType::BRIDGE:
-    case RGObjectType::SPLASH_WEDGE:
-    case RGObjectType::CHANNEL:
-        out.push_back({ {0, -he.y + t*0.5f, 0}, {he.x, t*0.5f, he.z} }); // bottom
-        out.push_back({ {-he.x + t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} }); // left
-        out.push_back({ { he.x - t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} }); // right
-        break;
-
-    case RGObjectType::CONTAINER:
-        out.push_back({ {0, -he.y + t*0.5f, 0}, {he.x, t*0.5f, he.z} });        // bottom
-        out.push_back({ {-he.x + t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} });        // left
-        out.push_back({ { he.x - t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} });        // right
-        out.push_back({ {0, 0,  he.z - t*0.5f}, {he.x, he.y, t*0.5f} });        // front
-        out.push_back({ {0, 0, -he.z + t*0.5f}, {he.x, he.y, t*0.5f} });        // back
-        break;
-
-    case RGObjectType::FUNNEL:
-        // No longer used by cell builder (Feature::Funnel emits BOX children).
-        // Kept as fallback for any legacy RGObjectType::FUNNEL objects.
-        break;
-
-    case RGObjectType::DROP_CHUTE:
-        out.push_back({ {-he.x + t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} }); // left
-        out.push_back({ { he.x - t*0.5f, 0, 0}, {t*0.5f, he.y, he.z} }); // right
-        out.push_back({ {0, 0,  he.z - t*0.5f}, {he.x, he.y, t*0.5f} }); // front
-        out.push_back({ {0, 0, -he.z + t*0.5f}, {he.x, he.y, t*0.5f} }); // back
-        break;
-
-    case RGObjectType::SPHERE:
-        break; // handled separately
+    case RGObjectType::L_CHANNEL:
+    case RGObjectType::S_CHANNEL:
+    case RGObjectType::B_RAMP:
+    case RGObjectType::T_RAMP:
+      return out;
     }
+
     return out;
 }
 
@@ -69,11 +52,6 @@ void BuildCollisionShapes(const std::vector<RGObject>& objects,
         if (!obj.active) continue; // ghosts excluded
 
         Vec3 worldPos = obj.position;
-
-        if (obj.type == RGObjectType::SPHERE) {
-            spheres.push_back({ worldPos, obj.radius, energyRetention });
-            continue;
-        }
 
         // Build rotation axes from Euler angles
         Mat4 rotMat = CreateMatrixRotationXYZ(obj.rotation);
@@ -109,9 +87,9 @@ bool ResolveParticleOBB(Vec3& pos, Vec3& vel, const OBBCollider& obb)
     float ly = d.Dot(obb.axes[1]);
     float lz = d.Dot(obb.axes[2]);
 
-    float hx = obb.halfExtents.x;
-    float hy = obb.halfExtents.y;
-    float hz = obb.halfExtents.z;
+    float hx = obb.halfExtents.x + 0.01;
+    float hy = obb.halfExtents.y + 0.01;
+    float hz = obb.halfExtents.z + 0.01;
 
     // Early-out: not inside OBB
     if (std::abs(lx) >= hx) return false;
@@ -164,6 +142,47 @@ bool ResolveParticleSphere(Vec3& pos, Vec3& vel, const SphereCollider& s)
     if (vDot < 0.0f) vel = vel - n * ((1.0f + s.restitution) * vDot);
 
     return true;
+}
+
+void ProjectParticleOBB(Vec3 *pos, const OBBCollider &obb) {
+    // Transform particle to OBB local space
+    Vec3 d = *pos - obb.center;
+    float lx = d.Dot(obb.axes[0]);
+    float ly = d.Dot(obb.axes[1]);
+    float lz = d.Dot(obb.axes[2]);
+
+    float hx = obb.halfExtents.x;
+    float hy = obb.halfExtents.y;
+    float hz = obb.halfExtents.z;
+
+    // Early-out: not inside OBB
+    if (std::abs(lx) >= hx) return;
+    if (std::abs(ly) >= hy) return;
+    if (std::abs(lz) >= hz)
+      return;
+
+    projectionHits.fetch_add(1, std::memory_order_relaxed);
+
+    // Find face with minimum penetration depth
+    float penX = hx - std::abs(lx);
+    float penY = hy - std::abs(ly);
+    float penZ = hz - std::abs(lz);
+
+    Vec3  pushDir;
+    float pushDist;
+
+    if (penX <= penY && penX <= penZ) {
+        pushDir  = obb.axes[0] * (lx >= 0.0f ? 1.0f : -1.0f);
+        pushDist = penX;
+    } else if (penY <= penX && penY <= penZ) {
+        pushDir  = obb.axes[1] * (ly >= 0.0f ? 1.0f : -1.0f);
+        pushDist = penY;
+    } else {
+        pushDir  = obb.axes[2] * (lz >= 0.0f ? 1.0f : -1.0f);
+        pushDist = penZ;
+    }
+
+    *pos = *pos + pushDir * (pushDist + 0.0002f);
 }
 
 // ---------------------------------------------------------------------------

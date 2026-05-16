@@ -14,15 +14,11 @@ struct RGPort {
 };
 
 enum class RGObjectType {
-    RAMP,
-    CHANNEL,
-    CONTAINER,
-    BOX,
-    SPHERE,
-    FUNNEL,
-    DROP_CHUTE,
-    BRIDGE,
-    SPLASH_WEDGE,
+  BOX,
+  L_CHANNEL,
+  S_CHANNEL,
+  B_RAMP,
+  T_RAMP
 };
 
 struct RGObject {

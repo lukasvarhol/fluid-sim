@@ -65,13 +65,13 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
                                    "Preview: %s facing %s",
                                    featureNames[(int)editorState.previewCell.feature],
                                    orientNames[(int)editorState.previewCell.facing]);
-                if (editorState.previewCell.feature == Feature::Ramp)
+                if (editorState.previewCell.feature == Feature::B_RAMP)
                     ImGui::TextColored({1.0f, 1.0f, 0.3f, 1.0f},
                                        "Variant: %d", editorState.previewCell.variant);
                 ImGui::TextDisabled("[Enter]=Place  [Esc]=Cancel");
             } else {
                 ImGui::Text("Facing: %s", orientNames[(int)cf.facing]);
-                if (cf.feature == Feature::Ramp)
+                if (cf.feature == Feature::B_RAMP)
                     ImGui::Text("Variant: %d  (0=high, 4=low)", cf.variant);
             }
         }
@@ -175,64 +175,25 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
         // -----------------------------------------------------------------------
         // Trickler
         // -----------------------------------------------------------------------
-        if (ImGui::CollapsingHeader("Trickler")) {
-            bool prevMode = tricklerMode;
-            ImGui::Checkbox("Trickler Mode", &tricklerMode);
-            if (tricklerMode && !prevMode)
-                particles.ResetTrickler();
-            else if (!tricklerMode && prevMode)
-                particles.activeParticles = particles.numParticles;
-
-            if (tricklerMode) {
-                ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate,  0.1f, 200.0f);
-                ImGui::SliderFloat("Origin X",         &tricklerOriginX,   -1.0f,  1.0f);
-                ImGui::SliderFloat("Origin Y",         &tricklerOriginY,   -1.0f,  1.0f);
-                ImGui::SliderFloat("Origin Z",         &tricklerOriginZ,   -1.0f,  1.0f);
-                ImGui::Text("Active: %d / %d", particles.activeParticles, particles.numParticles);
-            }
-        }
+            if (ImGui::CollapsingHeader("Trickler")) {
+	      bool prevMode = tricklerMode;
+	      ImGui::Checkbox("Trickler Mode", &tricklerMode);
+	      if (tricklerMode && !prevMode) {
+		particles.ResetTrickler();
+	      } else if (!tricklerMode && prevMode) {
+		particles.activeParticles = particles.numParticles;
+	      }
+	      if (tricklerMode) {
+		ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate, 0.1f, 1000.0f);
+		ImGui::SliderFloat("Spread", &tricklerSpread, 0.0f, 0.2f);
+		ImGui::SliderFloat("Origin X", &tricklerOriginX, -1.0f, 1.0f);
+		ImGui::SliderFloat("Origin Y", &tricklerOriginY, -1.0f, 1.0f);
+		ImGui::SliderFloat("Origin Z", &tricklerOriginZ, -1.0f, 1.0f);
+		ImGui::Text("Active: %d / %d", particles.activeParticles, particles.numParticles);
+	      }
+	    }
 
         ImGui::End();
     }
-<<<<<<< HEAD
-=======
 
-    if (ImGui::CollapsingHeader("Physics")) {
-      ImGui::SliderFloat("Smoothing Radius", &smoothingRadius, 0.01f, 1.0f);
-      ImGui::SliderFloat("Relaxation Factor", &relaxation, 1000.0f, 50000.0f);
-      ImGui::SliderFloat("Gravity", &gravity, -10.0f, 10.0f);
-      ImGui::SliderFloat("Scorr Coefficient", &scorrCoefficient, 0.000001f, 0.00005f);
-      ImGui::SliderFloat("Viscosity", &xsphC, 0.01f, 1.0f);
-      ImGui::SliderFloat("Vorticity", &vorticityEpsilon, 0.0f, 20000.0f);
-      ImGui::SliderInt("Solvert Iterations", &numIterations, 1, 20);
-    }
-            
-    if (ImGui::CollapsingHeader("Mouse")) {
-      ImGui::SliderFloat("Push Strength", &pushStrength, -100.0f, 0.0f);
-      ImGui::SliderFloat("Pull Strength", &pullStrength, 0.0, 100.0f);
-      ImGui::SliderFloat("Push Radius", &pushRadius, 0.0f, 1.0f);
-      ImGui::SliderFloat("Pull Radius", &pullRadius, 0.0f, 1.0f);
-    }
-
-    if (ImGui::CollapsingHeader("Trickler")) {
-      bool prevMode = tricklerMode;
-      ImGui::Checkbox("Trickler Mode", &tricklerMode);
-      if (tricklerMode && !prevMode) {
-        particles.ResetTrickler();
-      } else if (!tricklerMode && prevMode) {
-        particles.activeParticles = particles.numParticles;
-      }
-      if (tricklerMode) {
-        ImGui::SliderFloat("Spawn Rate (p/s)", &tricklerSpawnRate, 0.1f, 1000.0f);
-        ImGui::SliderFloat("Spread", &tricklerSpread, 0.0f, 0.2f);
-        ImGui::SliderFloat("Origin X", &tricklerOriginX, -1.0f, 1.0f);
-        ImGui::SliderFloat("Origin Y", &tricklerOriginY, -1.0f, 1.0f);
-        ImGui::SliderFloat("Origin Z", &tricklerOriginZ, -1.0f, 1.0f);
-        ImGui::Text("Active: %d / %d", particles.activeParticles, particles.numParticles);
-      }
-    }
-    ImGui::End();
-  }
-
->>>>>>> origin/master
 }

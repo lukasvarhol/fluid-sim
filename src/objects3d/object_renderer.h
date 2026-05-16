@@ -2,12 +2,22 @@
 #include <vector>
 #include "objects3d/editor_state.h"
 #include "linear_algebra.h"
+#include <string>
+#include <unordered_map>
+
+struct MeshData {
+  std::vector<float> vertices;
+  std::vector<unsigned int> indices;
+  unsigned int VAO = 0, VBO = 0, EBO = 0;
+  int indexCount = 0;
+};
 
 struct ObjectRenderer {
-    unsigned int VAO    = 0;
-    unsigned int VBO    = 0;
-    unsigned int shader = 0;
-    std::vector<float> buffer; // rebuilt each frame on CPU
+  unsigned int VAO    = 0;
+  unsigned int VBO    = 0;
+  unsigned int shader = 0;
+  std::vector<float> buffer; // rebuilt each frame on CPU
+  std::unordered_map<std::string, MeshData> loadedMeshes;
 };
 
 void SetupObjectRenderer(ObjectRenderer& r);
@@ -36,6 +46,10 @@ void RenderObjects(ObjectRenderer& r,
                    bool showSelectedCell,
                    bool showOccupiedOutlines,
                    const Mat4& view,
-                   const Mat4& projection);
+                   const Mat4& projection, Vec3 cameraPos);
 
-void DestroyObjectRenderer(ObjectRenderer& r);
+void DestroyObjectRenderer(ObjectRenderer &r);
+
+void LoadOBJ(const std::string &path, MeshData &out, float scale = 0.001f);
+
+void DrawMesh(const MeshData& mesh, const Mat4& model, const Mat4& view, const Mat4& projection, unsigned int shader, Vec3 cameraPos);

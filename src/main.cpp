@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < profilerFrames; ++i) {
 
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
-                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f);
+                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, std::vector<OBBCollider>{});
 	currentFrame++;
       }
 
@@ -188,6 +188,9 @@ int main(int argc, char *argv[]) {
   double lastTime = glfwGetTime();
 
   float dtMeasured = 0.0f;
+
+  std::vector<OBBCollider> obbs;
+  std::vector<SphereCollider> spheres;
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -206,21 +209,19 @@ int main(int argc, char *argv[]) {
     bool wasReset = simulationControl.isReset;
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
     if (wasReset) {
-if (editorState.resetObjectsOnR)
+      if (editorState.resetObjectsOnR)
         LoadDefaultScene(editorState);
     }
 
     MouseRay mouseRay = MouseRaycast(inputState, cameraState, window);
-    
-    if (dtToSim > 0)
-      {
+
+    if (dtToSim > 0) {
+      BuildCollisionShapes(editorState.objects, obbs, spheres);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
-                       mouseRay.direction, mouseRay.strength);
-      // Post-solve: push particles out of solid RG objects
-      ApplyObjectCollisions(particles.positions, particles.velocities,
-                            particles.activeParticles, editorState.objects);
-      }
+                       mouseRay.direction, mouseRay.strength, obbs);
+
+    }
 
     cellGridRef.visible = editorState.showGrid;
 
@@ -236,7 +237,7 @@ if (editorState.resetObjectsOnR)
                     &editorState.grid,
                     editorState.showSelectedCell,
                     editorState.showOccupiedOutlines,
-                    cameraState.view, proj);
+                    cameraState.view, proj, cameraState.position);
     }
 
     ImGui::Render();
