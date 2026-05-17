@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < profilerFrames; ++i) {
 
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
-                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, std::vector<OBBCollider>{});
+                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, std::vector<SDFCollider>{});
 	currentFrame++;
       }
 
@@ -189,8 +189,8 @@ int main(int argc, char *argv[]) {
 
   float dtMeasured = 0.0f;
 
-  std::vector<OBBCollider> obbs;
-  std::vector<SphereCollider> spheres;
+  std::vector<SDFCollider> colliders;
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -216,10 +216,10 @@ int main(int argc, char *argv[]) {
     MouseRay mouseRay = MouseRaycast(inputState, cameraState, window);
 
     if (dtToSim > 0) {
-      BuildCollisionShapes(editorState.objects, obbs, spheres);
+      BuildSDFColliders(editorState.objects, colliders);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
-                       mouseRay.direction, mouseRay.strength, obbs);
+                       mouseRay.direction, mouseRay.strength, colliders);
 
     }
 

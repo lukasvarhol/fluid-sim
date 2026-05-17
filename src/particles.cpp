@@ -190,7 +190,7 @@ float Particles::CalculateLambda(size_t i, float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 		       const int g_fb_w, const int g_fb_h,
-		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<OBBCollider>& obbs)
+		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<SDFCollider>& colliders)
 {
   if (tricklerMode)
     TickTrickler(dt);
@@ -273,14 +273,12 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       ParallelFor(activeParticles, [&](int i) {
 	predictedPositions[i] += deltas[i];
         ClampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
-	for (const OBBCollider& obb : obbs)
-          ProjectParticleOBB(&predictedPositions[i], obb);
+	for (const SDFCollider& collider : colliders)
+          ProjectParticleSDF(predictedPositions[i], velocities[i], collider);
       });
 
     }
   }
-
-  std::cout << "Projection hits: " << GetProjectionHits() << std::endl;
 
   // 4. velocity update
   {

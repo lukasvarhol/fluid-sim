@@ -93,8 +93,8 @@ if(NOT BUILD_BENCHMARKS)
     src/objects3d/editor_state.h
     src/objects3d/object_builder.h
     src/objects3d/object_builder.cpp
-    src/objects3d/object_collision.h
-    src/objects3d/object_collision.cpp
+    src/objects3d/sdf_collision.h
+    src/objects3d/sdf_collision.cpp
     src/objects3d/object_renderer.h
     src/objects3d/object_renderer.cpp
     src/systems/camera_system.h

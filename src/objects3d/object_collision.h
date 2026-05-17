@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "objects3d/editor_state.h"
+#include "sdf_collision.h"
 #include "linear_algebra.h"
 
 

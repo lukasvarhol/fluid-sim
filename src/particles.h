@@ -9,7 +9,7 @@
 #include <numeric>
 #include "particle_config.h"
 #include "../benchmark/profiler.h"
-#include "objects3d/object_collision.h"
+#include "objects3d/sdf_collision.h"
 
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
@@ -73,7 +73,7 @@ struct Particles
   Particles(int numParticles, float smoothingRadius);
   void Update(float dt, float smoothingRadius, float radiusPx,
                 const int g_fb_w,
-	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<OBBCollider>& obbs);
+	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<SDFCollider>& colliders);
   void Reset(float smoothingRadius);
   void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz);
   void ResetTrickler();
