@@ -30,11 +30,16 @@ float sdfCappedCylinder(Vec3 p, float radius, float halfHeight) {
   return std::min(std::max(d.x, d.y), 0.0f) + dPos.Magnitude();
 }
 
+float sdfTorus(Vec3 p, Vec2 t) {
+  Vec2 q = Vec2{Vec2{p.x, p.z}.Magnitude() - t.x, p.y};
+  return q.Magnitude() - t.y;
+}
+
 float sdfSChannel(Vec3 p) {
-  const float outerRadius = 0.2f;
-  const float wall = 0.05;
-  const float halfLength = 0.2;
-  const float innerRadius = outerRadius - wall;
+  constexpr float outerRadius = 0.2f;
+  constexpr float wall = 0.05;
+  constexpr float halfLength = 0.2;
+  constexpr float innerRadius = outerRadius - wall;
 
   float outer = sdfCappedCylinder(p, outerRadius, halfLength);
   float inner = sdfCappedCylinder(p, innerRadius, halfLength + 0.001f);
@@ -42,10 +47,27 @@ float sdfSChannel(Vec3 p) {
   return std::max(shell, p.y);
 }
 
+float sdfLChannel(Vec3 p) {
+  constexpr float majorRadius = 0.2f;
+  constexpr float outerRadius = 0.2f;
+  constexpr float wall = 0.05;
+  constexpr float innerRadius = outerRadius - wall;
+
+  Vec3 pTorus = p - Vec3{-0.2f, 0.0f, 0.2f};
+  float outer = sdfTorus(pTorus, Vec2{majorRadius, outerRadius});
+  float inner = sdfTorus(pTorus, Vec2{majorRadius, innerRadius});
+  float shell = std::max(outer, -inner);
+
+  float quarter = std::max(std::max(shell, -pTorus.x ), pTorus.z);
+  return std::max(quarter, pTorus.y);
+}
+
 float sdfDispatch(RGObjectType type, Vec3 localPosition) {
   switch (type) {
   case RGObjectType::S_CHANNEL:
     return sdfSChannel(localPosition);
+  case RGObjectType::L_CHANNEL:
+    return sdfLChannel(localPosition);
   default:
     return 1e9f; // too far away
   }
