@@ -35,6 +35,40 @@ float sdfTorus(Vec3 p, Vec2 t) {
   return q.Magnitude() - t.y;
 }
 
+float sdfTorusX(Vec3 p, Vec2 t) {
+  Vec2 q = Vec2{Vec2{p.y, p.z}.Magnitude() - t.x, p.x};
+  return q.Magnitude() - t.y;
+}
+
+float sdfSphere(Vec3 p, float r) { return p.Magnitude() - r; }
+
+float sdfWedgeShell(Vec3 p, float outerRadius, float innerRadius, float wedgeAngle) {
+  float outer = p.Magnitude() - outerRadius;
+  float inner = p.Magnitude() - innerRadius;
+  float shell = std::max(outer, -inner);
+  
+  float halfAngle = wedgeAngle * 0.5f;
+  float s = std::sin(halfAngle);
+  float c = std::cos(halfAngle);
+  
+  Vec3 n1{0.0f, 0.0f, -1.0};
+  Vec3 n2{0.0f, 0.8f, 0.6f};
+  
+  return std::max(std::max(shell, -p.Dot(n1)), -p.Dot(n2));
+}
+
+float sdfTorusWedgeShell(Vec3 p, float majorRadius, float outerRadius, float innerRadius, float wedgeAngle) {
+  float outer = sdfTorusX(p, Vec2{majorRadius, outerRadius});
+  float inner = sdfTorusX(p, Vec2{majorRadius, innerRadius});
+  float shell = std::max(outer, -inner);
+
+  Vec3 n1{0.0f, 0.0f, -1.0};
+  Vec3 n2{0.0f, 0.8f, 0.6f};
+
+  float cut = std::max(shell, Vec2{p.y, p.z}.Magnitude() - majorRadius);
+  return std::max(std::max(cut, -p.Dot(n1) ), -p.Dot(n2));
+}
+
 float sdfSChannel(Vec3 p) {
   constexpr float outerRadius = 0.2f;
   constexpr float wall = 0.05;
@@ -62,12 +96,41 @@ float sdfLChannel(Vec3 p) {
   return std::max(quarter, pTorus.y);
 }
 
+float sdfBRamp(Vec3 p) {
+  constexpr float c = 0.6f;
+  constexpr float s = 0.8f;
+  constexpr float outerRadius = 0.2f;
+  constexpr float majorRadius = 0.2f;
+  constexpr float wall = 0.05f;
+  constexpr float innerRadius = outerRadius - wall;
+
+  p.z = -p.z;
+  Vec3 pLocal = p - Vec3{0.0f, 0.155f, 0.08f};
+  Vec3 pRotated{pLocal.x, pLocal.y * c + pLocal.z * s,
+                -pLocal.y * s + pLocal.z * c};
+  float mid = sdfSChannel(pRotated);
+
+  // Wedge 1 at (0, 0.2, -0.2)
+  Vec3 pS1 = p - Vec3{0.0f, 0.0f, 0.2f};
+  pS1.y = -pS1.y;
+  float s1 = sdfWedgeShell(pS1, outerRadius, innerRadius, 53.1f * PI / 180.0f);
+  
+  // Wedge 2 = mirror of wedge 1 over Y=0.4
+  Vec3 pS2 = p - Vec3{0.0f, 0.2f, -0.2f};
+  pS2.z = -pS2.z;
+  float s2 = sdfTorusWedgeShell(pS2, majorRadius, outerRadius, innerRadius,  53.1f * PI / 180.0f);
+
+  return std::min(std::min(mid, s1), s2);
+}
+
 float sdfDispatch(RGObjectType type, Vec3 localPosition) {
   switch (type) {
   case RGObjectType::S_CHANNEL:
     return sdfSChannel(localPosition);
   case RGObjectType::L_CHANNEL:
     return sdfLChannel(localPosition);
+  case RGObjectType::RAMP:
+    return sdfBRamp(localPosition);
   default:
     return 1e9f; // too far away
   }
@@ -108,3 +171,26 @@ void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider &colli
   if (velocityDot < 0.0f)
     velocity -= worldGradient * ((1.0f + collider.restitution) * velocityDot);
 }
+
+std::vector<Vec3> SampleSDFInside(const SDFCollider &collider, float gridStep) {
+  std::vector<Vec3> insidePoints;
+  const float bound = CELL_SIZE * 2.0f;
+
+  for (float x = -bound; x <= bound; x += gridStep) {
+    for (float y = -bound; y <= bound; y += gridStep) {
+      for (float z = -bound; z <= bound; z += gridStep) {
+        Vec3 localPosition{x, y, z};
+        float d = sdfDispatch(collider.type, localPosition);
+        if (d < 0.0f) {
+          Vec3 worldPos = collider.worldPosition +
+                          collider.rotationAxes[0] * localPosition.x +
+                          collider.rotationAxes[1] * localPosition.y +
+                          collider.rotationAxes[2] * localPosition.z;
+          insidePoints.push_back(worldPos);
+        }
+      }
+    }
+  }
+  return insidePoints;
+}
+

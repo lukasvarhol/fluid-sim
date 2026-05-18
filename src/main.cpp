@@ -212,9 +212,16 @@ int main(int argc, char *argv[]) {
       if (editorState.resetObjectsOnR)
         LoadDefaultScene(editorState);
     }
+    // std::vector<SDFCollider> testColliders;
+    // BuildSDFColliders(editorState.objects, testColliders);
+    // for (const auto& c : testColliders) {
+    //   auto pts = SampleSDFInside(c, 0.02f);
+    //   printf("collider type %d: %zu inside points\n", (int)c.type, pts.size());
+    // }
 
     MouseRay mouseRay = MouseRaycast(inputState, cameraState, window);
 
+    std::vector<Vec3> sdfPoints;
     if (dtToSim > 0) {
       BuildSDFColliders(editorState.objects, colliders);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
@@ -237,7 +244,7 @@ int main(int argc, char *argv[]) {
                     &editorState.grid,
                     editorState.showSelectedCell,
                     editorState.showOccupiedOutlines,
-                    cameraState.view, proj, cameraState.position);
+                    cameraState.view, proj, cameraState.position, std::vector<SDFCollider>{});
     }
 
     ImGui::Render();

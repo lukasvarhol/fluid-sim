@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "objects3d/editor_state.h"
+#include "sdf_collision.h"
 #include "linear_algebra.h"
 #include <string>
 #include <unordered_map>
@@ -47,10 +48,13 @@ void RenderObjects(ObjectRenderer& r,
                    bool showSelectedCell,
                    bool showOccupiedOutlines,
                    const Mat4& view,
-                   const Mat4& projection, Vec3 cameraPos);
+                   const Mat4& projection, Vec3 cameraPos, const std::vector<SDFCollider>& sdfColliders);
 
 void DestroyObjectRenderer(ObjectRenderer &r);
 
-void LoadOBJ(const std::string &path, MeshData &out, float scale = 0.001f);
+void LoadOBJ(const std::string &path, MeshData &out, float scale = 0.001f, bool flipWinding = false);
 
 void DrawMesh(const MeshData& mesh, const Mat4& model, const Mat4& view, const Mat4& projection, unsigned int shader, Vec3 cameraPos);
+
+void RenderDebugPoints(ObjectRenderer& r, const std::vector<Vec3>& points,
+                       const Mat4& view, const Mat4& projection);

@@ -25,8 +25,7 @@ static void AppendCellObjects(std::vector<RGObject>& objects,
   case Feature::S_CHANNEL:
     type = RGObjectType::S_CHANNEL;
     break;
-  case Feature::T_RAMP: type = RGObjectType::T_RAMP; break;
-  case Feature::B_RAMP:      type = RGObjectType::B_RAMP;    break;
+  case Feature::RAMP: type = RGObjectType::RAMP; break;
   case Feature::EMPTY:     return;
   default:                 return; // unimplemented features ignored for now
   }
@@ -119,10 +118,9 @@ void LoadDefaultScene(EditorState& state)
   // Five ramps in a horizontal row at Y=3, Z=2, flowing East (+X).
   // Each successive variant lowers the ramp board by rampStep=0.08 within the cell,
   // forming a continuous descending path.
-  g.GetCell(0, 0, 0) = { Feature::L_CHANNEL,      Orientation::East,  0 };
-  g.GetCell(0, 0, 1) = { Feature::S_CHANNEL,      Orientation::South,  0 };
-  g.GetCell(0, 0, 2) = { Feature::B_RAMP,      Orientation::North,  0 };
-  g.GetCell(0, 1, 2) = { Feature::T_RAMP,      Orientation::North,  0 };
+  g.GetCell(1, 1, 1) = { Feature::L_CHANNEL,      Orientation::East,  0 };
+  g.GetCell(1, 1, 2) = { Feature::S_CHANNEL,      Orientation::South,  0 };
+  g.GetCell(1, 1, 3) = { Feature::RAMP,      Orientation::North,  0 };
   // g.GetCell(4, 3, 2) = { Feature::L_CHANNEL,      Orientation::East,  4 };
   // // Channel below the last ramp catches the descending fluid
   // g.GetCell(4, 2, 2) = { Feature::L_CHANNEL,   Orientation::East,  0 };

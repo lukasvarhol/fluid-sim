@@ -5,6 +5,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <map>
+#include <tuple>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #define TINYOBJ_NO_INCLUDE_MAPBOX_EARCUT
@@ -15,11 +17,15 @@ static std::string MeshKeyForType(RGObjectType type) {
   case RGObjectType::S_CHANNEL:   return "s_channel";
   case RGObjectType::L_CHANNEL:
     return "l_channel";
-  case RGObjectType::T_RAMP:   return "t_ramp";
-  case RGObjectType::B_RAMP:   return "b_ramp";
+  case RGObjectType::RAMP:   return "ramp";
   default: return "";
   }
 }
+
+struct FaceData {
+  Vec3 positions[3];
+  Vec3 faceNormal;
+};
 
 // ---------------------------------------------------------------------------
 // Shader compilation helpers (mirrors main.cpp MakeModule / MakeShader)
@@ -134,8 +140,7 @@ void SetupObjectRenderer(ObjectRenderer& r)
 
   LoadOBJ("meshes/LChannel.obj", r.loadedMeshes["l_channel"]);
   LoadOBJ("meshes/SChannel.obj", r.loadedMeshes["s_channel"]);
-  LoadOBJ("meshes/BRamp.obj", r.loadedMeshes["b_ramp"]);
-  LoadOBJ("meshes/TRamp.obj", r.loadedMeshes["t_ramp"]);
+  LoadOBJ("meshes/Ramp.obj", r.loadedMeshes["ramp"]);
 
   // Vertex layout: pos(3) + normal(3) + colorAlpha(4) = 10 floats = 40 bytes
   constexpr int stride = 10 * sizeof(float);
@@ -298,8 +303,7 @@ static std::vector<ChildBox> GetChildBoxes(const RGObject& obj) {
   switch (obj.type) {
   case RGObjectType::L_CHANNEL:
   case RGObjectType::S_CHANNEL:
-  case RGObjectType::B_RAMP:
-  case RGObjectType::T_RAMP:
+  case RGObjectType::RAMP:
     return {}; 
   }
   return {};
@@ -363,7 +367,7 @@ void RenderObjects(ObjectRenderer& r,
                    bool showSelectedCell,
                    bool showOccupiedOutlines,
                    const Mat4& view,
-                   const Mat4& projection, Vec3 cameraPos)
+                   const Mat4& projection, Vec3 cameraPos, const std::vector<SDFCollider>& colliders)
 {
   if (!r.shader)
     return;
@@ -415,7 +419,7 @@ void RenderObjects(ObjectRenderer& r,
     }
   }
 
-    if (showOccupiedOutlines && grid) {
+  if (showOccupiedOutlines && grid) {
     Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
     constexpr float h = CELL_SIZE * 0.5f - 0.002f;
     glDepthMask(GL_FALSE);
@@ -444,20 +448,27 @@ void RenderObjects(ObjectRenderer& r,
     bool cellEmpty = cf.feature == Feature::EMPTY;
     bool inPreview = previewObjs && !previewObjs->empty();
     
-      Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
-      constexpr float h = CELL_SIZE * 0.5f - 0.001f;
-      Vec3 sel = grid->CellCenterWorld(grid->selX, grid->selY, grid->selZ);
-      glDisable(GL_DEPTH_TEST);
-      AppendBox(r.buffer, sel, {h, h, h}, identAxes, {1.0f, 0.9f, 0.1f}, 0.25f);
-      FlushBuffer(r, {0.8f, 0.8f, 0.8f}, 0.2f);
-      glEnable(GL_DEPTH_TEST);
-    
+    Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
+    constexpr float h = CELL_SIZE * 0.5f - 0.001f;
+    Vec3 sel = grid->CellCenterWorld(grid->selX, grid->selY, grid->selZ);
+    glDisable(GL_DEPTH_TEST);
+    AppendBox(r.buffer, sel, {h, h, h}, identAxes, {1.0f, 0.9f, 0.1f}, 0.25f);
+    FlushBuffer(r, {0.8f, 0.8f, 0.8f}, 0.2f);
+    glEnable(GL_DEPTH_TEST);
+  }
+
+  if (!colliders.empty()) {
+    for (const auto &collider : colliders) {
+      auto points = SampleSDFInside(collider, 0.02f);
+      if (!points.empty())
+	RenderDebugPoints(r, points, view, projection);
+    }
   }
 
   glDepthMask(depthMaskSaved);
 }
 
-void LoadOBJ(const std::string &path, MeshData &out, float scale) {
+void LoadOBJ(const std::string &path, MeshData &out, float scale, bool flipWinding) {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
@@ -466,40 +477,72 @@ void LoadOBJ(const std::string &path, MeshData &out, float scale) {
   if (!err.empty()) std::cerr << "TinyObjLoader: " << err << "\n";
   if (!ret) return;
 
+  auto quantize = [](Vec3 p) {
+  return std::make_tuple(
+			 (int)std::round(p.x * 10000.0f),
+			 (int)std::round(p.y * 10000.0f),
+			 (int)std::round(p.z * 10000.0f));
+  };
+
+  std::vector<FaceData> faces;
+  std::map<std::tuple<int,int,int>, Vec3> normalAccum;
+
+  // Pass 1: read triangles, compute face normals, accumulate at each position
   for (size_t s = 0; s < shapes.size(); s++) {
-    // Loop over faces(polygon)
     size_t index_offset = 0;
     for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
       size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
 
-      // Loop over vertices in the face.
+      FaceData fd;
       for (size_t v = 0; v < fv; v++) {
-	// access to vertex
 	tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-	tinyobj::real_t vx = attrib.vertices[3*size_t(idx.vertex_index)+0];
-	tinyobj::real_t vy = attrib.vertices[3*size_t(idx.vertex_index)+1];
-        tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
-
-        out.vertices.push_back(vx * scale);
-	out.vertices.push_back(vz * scale);
-        out.vertices.push_back(vy * scale);
-        
-	float nx = 0, ny = 1, nz = 0; // default up normal
-	if (idx.normal_index >= 0) {
-	  nx = attrib.normals[3 * idx.normal_index + 0];
-	  ny = attrib.normals[3 * idx.normal_index + 1];
-	  nz = attrib.normals[3 * idx.normal_index + 2];
-	}
-        out.vertices.push_back(nx);
-	out.vertices.push_back(nz);
-	out.vertices.push_back(ny);
-	
-	out.indices.push_back(out.indices.size());
+	tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
+	tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
+	tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
+	// Y/Z swap and scale
+	fd.positions[v] = Vec3{vx * scale, vz * scale, vy * scale};
       }
-      
+
+      Vec3 e1 = fd.positions[1] - fd.positions[0];
+      Vec3 e2 = fd.positions[2] - fd.positions[0];
+      fd.faceNormal = Normalize(Cross(e1, e2));
+      if (flipWinding) fd.faceNormal = fd.faceNormal * -1.0f;
+
+      for (size_t v = 0; v < fv; v++) {
+	auto key = quantize(fd.positions[v]);
+	normalAccum[key] += fd.faceNormal;
+      }
+
+      faces.push_back(fd);
       index_offset += fv;
     }
   }
+
+  // Normalize accumulated normals
+  for (auto& kv : normalAccum) {
+    kv.second = Normalize(kv.second);
+  }
+
+  // Pass 2: emit vertices with smoothed normals
+  for (const FaceData& fd : faces) {
+    for (size_t v = 0; v < 3; v++) {
+      auto key = quantize(fd.positions[v]);
+      Vec3 N = normalAccum[key];
+
+      out.vertices.push_back(fd.positions[v].x);
+      out.vertices.push_back(fd.positions[v].y);
+      out.vertices.push_back(fd.positions[v].z);
+      out.vertices.push_back(N.x);
+      out.vertices.push_back(N.y);
+      out.vertices.push_back(N.z);
+
+      out.indices.push_back(out.indices.size());
+    }
+  }
+  printf("LoadOBJ %s: first face normal = (%.3f, %.3f, %.3f), vertex count = %zu\n",
+	 path.c_str(),
+	 out.vertices[3], out.vertices[4], out.vertices[5],
+	 out.vertices.size() / 6);
   out.indexCount = (int)out.indices.size();
 
   glGenVertexArrays(1, &out.VAO);
@@ -537,4 +580,45 @@ void DrawMesh(const MeshData &mesh, const Mat4 &model, const Mat4 &view,
   glBindVertexArray(0);
 }
 
+void RenderDebugPoints(ObjectRenderer& r, const std::vector<Vec3>& points,
+                       const Mat4& view, const Mat4& projection) {
+  if (points.empty()) return;
+  
+  // Build padded buffer with dummy normal and orange color
+  std::vector<float> buf;
+  for (const Vec3& p : points) {
+    buf.push_back(p.x); buf.push_back(p.y); buf.push_back(p.z);
+    buf.push_back(0.0f); buf.push_back(1.0f); buf.push_back(0.0f);
+    buf.push_back(1.0f); buf.push_back(0.5f); buf.push_back(0.0f); buf.push_back(1.0f);
+  }
+  
+  unsigned int tempVAO, tempVBO;
+  glGenVertexArrays(1, &tempVAO);
+  glGenBuffers(1, &tempVBO);
+  glBindVertexArray(tempVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, tempVBO);
+  glBufferData(GL_ARRAY_BUFFER, buf.size() * sizeof(float), buf.data(), GL_DYNAMIC_DRAW);
+  
+  // Same attribute layout as FlushBuffer
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 40, (void*)0);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 40, (void*)(3 * sizeof(float)));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 40, (void*)(6 * sizeof(float)));
+  glEnableVertexAttribArray(2);
+  
+  glUseProgram(r.shader);
+  glUniformMatrix4fv(glGetUniformLocation(r.shader, "uView"), 1, GL_FALSE, view.entries);
+  glUniformMatrix4fv(glGetUniformLocation(r.shader, "uProjection"), 1, GL_FALSE, projection.entries);
+  Mat4 identity = Mat4::Identity();
+  glUniformMatrix4fv(glGetUniformLocation(r.shader, "uModel"), 1, GL_FALSE, identity.entries);
+  glUniform4f(glGetUniformLocation(r.shader, "uColor"), 1.0f, 0.5f, 0.0f, 1.0f);
+  
+  glPointSize(5.0f);
+  glDrawArrays(GL_POINTS, 0, points.size());
+  
+  glBindVertexArray(0);
+  glDeleteVertexArrays(1, &tempVAO);
+  glDeleteBuffers(1, &tempVBO);
+}
 

@@ -17,3 +17,4 @@ void BuildSDFColliders(const std::vector<RGObject>& obbjects, std::vector<SDFCol
 float sdfDispatch(RGObjectType type, Vec3 localPosition);
 Vec3 sdfGradient(RGObjectType type, Vec3 localPosition);
 void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider& collider);
+std::vector<Vec3> SampleSDFInside(const SDFCollider &collider, float gridStep);

@@ -25,5 +25,6 @@ void main()
   vec3 specColor = vec3(1.0) * spec * 1.2;
   vec3 fresnelColor = vec3(1.0) * fresnel * 0.3;
   fragColor = vec4(baseColor + specColor + fresnelColor, vColor.a);
+  //fragColor = vec4(N * 0.5 + specColor + fresnelColor, vColor.a);
 
 }

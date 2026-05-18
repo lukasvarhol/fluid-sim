@@ -17,8 +17,7 @@ enum class RGObjectType {
   BOX,
   L_CHANNEL,
   S_CHANNEL,
-  B_RAMP,
-  T_RAMP
+  RAMP
 };
 
 struct RGObject {

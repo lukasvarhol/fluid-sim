@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <string>
 
-static const char* kFeatureNames[] = {
-    "Empty", "Ramp", "FlatSurface", "Channel", "Tube", "Funnel", "Container", "LChannel"
-};
+static const char *kFeatureNames[] = {"Empty", "Ramp", "Straight Channel",
+                                      "L Channel"};
+constexpr int FEATURE_COUNT = std::size(kFeatureNames);
 static const char* kOrientNames[]  = { "North", "East", "South", "West" };
 
 void ScrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
@@ -65,7 +65,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             if (key == GLFW_KEY_F) {
                 int delta = (mods & GLFW_MOD_SHIFT) ? -1 : 1;
                 if (!es->previewActive) StartPreview(grid, *es);
-                int n = (((int)es->previewCell.feature + delta) % NUM_FEATURES + NUM_FEATURES) % NUM_FEATURES;
+                int n = (((int)es->previewCell.feature + delta) % FEATURE_COUNT + FEATURE_COUNT) % FEATURE_COUNT;
                 es->previewCell.feature = static_cast<Feature>(n);
                 RegeneratePreviewObjects(*es);
                 es->statusMsg   = std::string("Preview: ") + kFeatureNames[n]

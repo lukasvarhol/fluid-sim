@@ -7,7 +7,7 @@ constexpr int   GRID_Y    = 5;
 constexpr int   GRID_Z    = 5;
 constexpr float CELL_SIZE = 2.0f / static_cast<float>(GRID_X); // 0.4
 
-enum class Feature     { EMPTY, B_RAMP, T_RAMP, S_CHANNEL, L_CHANNEL };
+enum class Feature     { EMPTY, RAMP, S_CHANNEL, L_CHANNEL };
 static constexpr int NUM_FEATURES = 8;
 enum class Orientation { North, East, South, West };
 // Yaw mapping: North=0, East=PI/2, South=PI, West=3*PI/2
