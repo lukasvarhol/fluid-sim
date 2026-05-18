@@ -21,7 +21,7 @@ const constexpr int MAX_NEIGHBOURS = 256; // size of data structure to hold neig
 // particle behaviour
 extern float relaxation;
 extern float energyRetention;   // amount of energy retained after colliding with an object (wall, etc.)
-const float maxSpeed = 3.0f;            // value to which speed is clamped
+const float maxSpeed = 2.4f;            // value to which speed is clamped
 extern float gravity; // gravity (arbitrary value chosen which looks somewhat realistic)
 extern float scorrCoefficient;               // scorr coefficient. (Lower = more instability, less damping)
 extern int numIterations;            // number of times to run constraints solver (Lower = greater instability, greater performance)

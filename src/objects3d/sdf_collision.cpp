@@ -71,8 +71,8 @@ float sdfTorusWedgeShell(Vec3 p, float majorRadius, float outerRadius, float inn
 
 float sdfSChannel(Vec3 p) {
   constexpr float outerRadius = 0.2f;
-  constexpr float wall = 0.05;
-  constexpr float halfLength = 0.2;
+  constexpr float wall = 0.08;
+  constexpr float halfLength = 0.205;
   constexpr float innerRadius = outerRadius - wall;
 
   float outer = sdfCappedCylinder(p, outerRadius, halfLength);
@@ -84,7 +84,7 @@ float sdfSChannel(Vec3 p) {
 float sdfLChannel(Vec3 p) {
   constexpr float majorRadius = 0.2f;
   constexpr float outerRadius = 0.2f;
-  constexpr float wall = 0.05;
+  constexpr float wall = 0.08;
   constexpr float innerRadius = outerRadius - wall;
 
   Vec3 pTorus = p - Vec3{-0.2f, 0.0f, 0.2f};
@@ -99,24 +99,23 @@ float sdfLChannel(Vec3 p) {
 float sdfBRamp(Vec3 p) {
   constexpr float c = 0.6f;
   constexpr float s = 0.8f;
-  constexpr float outerRadius = 0.2f;
-  constexpr float majorRadius = 0.2f;
-  constexpr float wall = 0.05f;
+  constexpr float outerRadius = 0.193f;
+  constexpr float majorRadius = 0.193f;
+  constexpr float wall = 0.08f;
   constexpr float innerRadius = outerRadius - wall;
 
   p.z = -p.z;
-  Vec3 pLocal = p - Vec3{0.0f, 0.155f, 0.08f};
+  Vec3 pLocal = p - Vec3{0.0f, 0.157f, 0.09f};
   Vec3 pRotated{pLocal.x, pLocal.y * c + pLocal.z * s,
                 -pLocal.y * s + pLocal.z * c};
   float mid = sdfSChannel(pRotated);
 
   // Wedge 1 at (0, 0.2, -0.2)
-  Vec3 pS1 = p - Vec3{0.0f, 0.0f, 0.2f};
+  Vec3 pS1 = p - Vec3{0.0f, 0.0f, 0.21f};
   pS1.y = -pS1.y;
   float s1 = sdfWedgeShell(pS1, outerRadius, innerRadius, 53.1f * PI / 180.0f);
   
-  // Wedge 2 = mirror of wedge 1 over Y=0.4
-  Vec3 pS2 = p - Vec3{0.0f, 0.2f, -0.2f};
+  Vec3 pS2 = p - Vec3{0.0f, 0.20f, -0.2f};
   pS2.z = -pS2.z;
   float s2 = sdfTorusWedgeShell(pS2, majorRadius, outerRadius, innerRadius,  53.1f * PI / 180.0f);
 

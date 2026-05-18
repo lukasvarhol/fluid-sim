@@ -240,11 +240,11 @@ int main(int argc, char *argv[]) {
       float aspect = (float)viewport.screenWidth / (float)viewport.screenHeight;
       Mat4 proj = Perspective(45.0f * PI / 180.0f, aspect, 0.1f, 100.0f);
       RenderObjects(objectRenderer, editorState.objects,
-                    editorState.previewActive ? &editorState.previewObjects : nullptr,
-                    &editorState.grid,
-                    editorState.showSelectedCell,
-                    editorState.showOccupiedOutlines,
-                    cameraState.view, proj, cameraState.position, std::vector<SDFCollider>{});
+                    editorState.previewActive ? &editorState.previewObjects
+                                              : nullptr,
+                    &editorState.grid, editorState.showSelectedCell,
+                    editorState.showOccupiedOutlines, cameraState.view, proj,
+                    cameraState.position, std::vector<SDFCollider>{});
     }
 
     ImGui::Render();

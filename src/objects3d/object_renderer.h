@@ -22,22 +22,14 @@ struct ObjectRenderer {
   std::unordered_map<std::string, MeshData> loadedMeshes;
 };
 
-void SetupObjectRenderer(ObjectRenderer& r);
+void SetupObjectRenderer(ObjectRenderer &r);
+
 
 // Append 6-faced OBB geometry into buffer.
 // axes[0..2] are the local X/Y/Z unit vectors in world space.
 void AppendBox(std::vector<float>& buf,
                Vec3 center, Vec3 halfExtents, const Vec3 axes[3],
                Vec3 color, float alpha);
-
-// Append a low-poly sphere into buffer
-void AppendSphere(std::vector<float>& buf,
-                  Vec3 center, float radius,
-                  Vec3 color, float alpha);
-
-// Generate all primitives for one object and append to buf
-void AppendObject(std::vector<float>& buf, const RGObject& obj,
-                  Vec3 color, float alpha);
 
 // Render all active objects, optional ghost preview, optional cell overlays.
 // previewObjs: null = no ghost pass; grid: null = no cell overlays.

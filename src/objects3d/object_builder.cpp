@@ -119,8 +119,7 @@ void LoadDefaultScene(EditorState& state)
   g.GetCell(0, 3, 0) = { Feature::RAMP,      Orientation::West,  0 };
   g.GetCell(1, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
   g.GetCell(2, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
-  g.GetCell(3, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
-  g.GetCell(4, 3, 0) = { Feature::L_CHANNEL, Orientation::North, 0 };
+  g.GetCell(3, 3, 0) = { Feature::L_CHANNEL, Orientation::North, 0 };
 
   //g.GetCell(4, 2, 1) = { Feature::RAMP,      Orientation::South, 0 };
 
@@ -138,11 +137,10 @@ void LoadDefaultScene(EditorState& state)
   g.GetCell(3, 1, 4) = { Feature::S_CHANNEL, Orientation::East,  0 };
   g.GetCell(4, 1, 4) = { Feature::L_CHANNEL, Orientation::West, 0 };
 
-  g.GetCell(4, 0, 3) = { Feature::RAMP,      Orientation::North, 0 };
+  g.GetCell(4, 0, 3) = {Feature::RAMP, Orientation::North, 0};
 
-  g.GetCell(4, 0, 2) = { Feature::L_CHANNEL, Orientation::North,  0 };
-  g.GetCell(3, 0, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
-  g.GetCell(2, 0, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
+  g.GetCell(4, 1, 1) = {Feature::RAMP, Orientation::North, 0};
+  g.GetCell(4, 1, 0) = {Feature::L_CHANNEL, Orientation::North, 0};
 
   RegenerateObjectsFromGrid(g, state);
 }

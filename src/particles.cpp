@@ -286,6 +286,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     ParallelFor(activeParticles, [&](int i) {
       velocities[i] = (predictedPositions[i] - positions[i]) / dt;
       positions[i] = predictedPositions[i];
+
+      float speed = velocities[i].Magnitude();
+      if (speed > maxSpeed)
+	velocities[i] *= (maxSpeed / speed);
     });
   }
 

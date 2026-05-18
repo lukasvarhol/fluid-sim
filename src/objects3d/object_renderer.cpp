@@ -240,99 +240,17 @@ void AppendBox(std::vector<float>& buf,
 	   Vec3{-axes[1].x, -axes[1].y, -axes[1].z}, color, alpha);
 }
 
-void AppendSphere(std::vector<float>& buf,
-                  Vec3 center, float radius, Vec3 color, float alpha)
-{
-  const int nLat = 10;
-  const int nLon = 10;
-  const float PI_F = 3.14159265f;
-
-  for (int i = 0; i < nLat; ++i) {
-    float theta0 = PI_F * i       / nLat;
-    float theta1 = PI_F * (i + 1) / nLat;
-    for (int j = 0; j < nLon; ++j) {
-      float phi0 = 2.0f * PI_F * j       / nLon;
-      float phi1 = 2.0f * PI_F * (j + 1) / nLon;
-
-      auto sphVert = [&](float th, float ph) -> std::pair<Vec3,Vec3> {
-	float x = sinf(th) * cosf(ph);
-	float y = cosf(th);
-	float z = sinf(th) * sinf(ph);
-	Vec3 n{x, y, z};
-	Vec3 p{center.x + radius * x, center.y + radius * y, center.z + radius * z};
-	return {p, n};
-      };
-
-      auto [p00, n00] = sphVert(theta0, phi0);
-      auto [p01, n01] = sphVert(theta0, phi1);
-      auto [p10, n10] = sphVert(theta1, phi0);
-      auto [p11, n11] = sphVert(theta1, phi1);
-
-      // Triangle 1
-      PushVertex(buf, p00, n00, color, alpha);
-      PushVertex(buf, p10, n10, color, alpha);
-      PushVertex(buf, p11, n11, color, alpha);
-      // Triangle 2
-      PushVertex(buf, p00, n00, color, alpha);
-      PushVertex(buf, p11, n11, color, alpha);
-      PushVertex(buf, p01, n01, color, alpha);
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Per-object-type color map
 // ---------------------------------------------------------------------------
 
 static Vec3 ObjectColor(RGObjectType type, bool selected)
 {
-  Vec3 c{0.15, 0.4, 0.35};
+  Vec3 c{0.25, 0.4, 0.41};
   if (selected) { c.x = std::min(1.0f, c.x * 1.6f); c.y = std::min(1.0f, c.y * 1.6f); c.z = std::min(1.0f, c.z * 1.6f); }
   return c;
 }
 
-// ---------------------------------------------------------------------------
-// Per-type child-box decomposition
-// Child boxes are defined in PARENT LOCAL SPACE.
-// axes[] are pre-computed from parent rotation (TransformDir).
-// ---------------------------------------------------------------------------
-
-struct ChildBox { Vec3 localCenter; Vec3 halfExtents; };
-
-static std::vector<ChildBox> GetChildBoxes(const RGObject& obj) {
-  switch (obj.type) {
-  case RGObjectType::L_CHANNEL:
-  case RGObjectType::S_CHANNEL:
-  case RGObjectType::RAMP:
-    return {}; 
-  }
-  return {};
-}
-// ---------------------------------------------------------------------------
-// AppendObject — generate all visual geometry for one RGObject
-// ---------------------------------------------------------------------------
-
-void AppendObject(std::vector<float>& buf, const RGObject& obj,
-                  Vec3 color, float alpha)
-{
-
-  // Build rotation matrix from object's Euler angles
-  Mat4 rotMat = CreateMatrixRotationXYZ(obj.rotation);
-
-  Vec3 axes[3] = {
-    TransformDir(rotMat, {1, 0, 0}),
-    TransformDir(rotMat, {0, 1, 0}),
-    TransformDir(rotMat, {0, 0, 1})
-  };
-
-  Vec3 worldPos = obj.position;
-
-  auto children = GetChildBoxes(obj);
-  for (const auto& cb : children) {
-    Vec3 worldCenter = worldPos + TransformDir(rotMat, cb.localCenter);
-    AppendBox(buf, worldCenter, cb.halfExtents, axes, color, alpha);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Upload and draw
@@ -397,9 +315,8 @@ void RenderObjects(ObjectRenderer& r,
       Mat4 trans = CreateMatrixTransform(obj.position);
       Mat4 model = Mat4Multiply(trans, rot);
       glUniform4f(glGetUniformLocation(r.shader, "uColor"), col.x, col.y, col.z, 0.6f);
-      DrawMesh(r.loadedMeshes[meshKey], model, view, projection, r.shader, cameraPos);
-    } else {
-      AppendObject(r.buffer, obj, col, 1.0f);
+      DrawMesh(r.loadedMeshes[meshKey], model, view, projection, r.shader,
+               cameraPos);
     }
   }
 
