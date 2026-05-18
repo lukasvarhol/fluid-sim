@@ -109,22 +109,40 @@ void LoadDefaultScene(EditorState& state)
 
   tricklerMode      = true;
   tricklerOriginX   = -0.8f;
-  tricklerOriginY   =  0.8f;
-  tricklerOriginZ   =  0.0f;
-  tricklerSpawnRate = 30.0f;
+  tricklerOriginY   =  1.0f;
+  tricklerOriginZ   =  -0.8f;
+  tricklerSpawnRate = 300.0f;
+  tricklerSpread    = 0.022f;
 
-  GridState& g = state.grid;
+  GridState &g = state.grid;
 
-  // Five ramps in a horizontal row at Y=3, Z=2, flowing East (+X).
-  // Each successive variant lowers the ramp board by rampStep=0.08 within the cell,
-  // forming a continuous descending path.
-  g.GetCell(1, 1, 1) = { Feature::L_CHANNEL,      Orientation::East,  0 };
-  g.GetCell(1, 1, 2) = { Feature::S_CHANNEL,      Orientation::South,  0 };
-  g.GetCell(1, 1, 3) = { Feature::RAMP,      Orientation::North,  0 };
-  // g.GetCell(4, 3, 2) = { Feature::L_CHANNEL,      Orientation::East,  4 };
-  // // Channel below the last ramp catches the descending fluid
-  // g.GetCell(4, 2, 2) = { Feature::L_CHANNEL,   Orientation::East,  0 };
-  // Funnel collects pooled fluid and guides it downward
+  g.GetCell(0, 3, 0) = { Feature::RAMP,      Orientation::West,  0 };
+  g.GetCell(1, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(2, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(3, 3, 0) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(4, 3, 0) = { Feature::L_CHANNEL, Orientation::North, 0 };
+
+  //g.GetCell(4, 2, 1) = { Feature::RAMP,      Orientation::South, 0 };
+
+  g.GetCell(4, 2, 2) = { Feature::L_CHANNEL, Orientation::West,  0 };
+  g.GetCell(3, 2, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
+  g.GetCell(2, 2, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
+  g.GetCell(1, 2, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
+  g.GetCell(0, 2, 2) = { Feature::L_CHANNEL, Orientation::East, 0 };
+
+  g.GetCell(0, 1, 3) = { Feature::RAMP,      Orientation::South, 0 };
+
+  g.GetCell(0, 1, 4) = { Feature::L_CHANNEL, Orientation::South,  0 };
+  g.GetCell(1, 1, 4) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(2, 1, 4) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(3, 1, 4) = { Feature::S_CHANNEL, Orientation::East,  0 };
+  g.GetCell(4, 1, 4) = { Feature::L_CHANNEL, Orientation::West, 0 };
+
+  g.GetCell(4, 0, 3) = { Feature::RAMP,      Orientation::North, 0 };
+
+  g.GetCell(4, 0, 2) = { Feature::L_CHANNEL, Orientation::North,  0 };
+  g.GetCell(3, 0, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
+  g.GetCell(2, 0, 2) = { Feature::S_CHANNEL, Orientation::West,  0 };
 
   RegenerateObjectsFromGrid(g, state);
 }
