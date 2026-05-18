@@ -89,6 +89,14 @@ if(NOT BUILD_BENCHMARKS)
     src/geometry.cpp
     src/particle_config.h
     src/particle_config.cpp
+    src/objects3d/grid_state.h
+    src/objects3d/editor_state.h
+    src/objects3d/object_builder.h
+    src/objects3d/object_builder.cpp
+    src/objects3d/sdf_collision.h
+    src/objects3d/sdf_collision.cpp
+    src/objects3d/object_renderer.h
+    src/objects3d/object_renderer.cpp
     src/systems/camera_system.h
     src/systems/camera_system.cpp
     src/systems/render_system.h

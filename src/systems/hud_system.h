@@ -5,5 +5,6 @@
 #include <imgui/imgui_impl_opengl3.h>
 #include "../particles.h"
 #include "../app/simulation_control.h"
+#include "objects3d/editor_state.h"
 
-void DrawHUD(Particles &particles, SimulationControl& simulationControl);
+void DrawHUD(Particles& particles, SimulationControl& simulationControl, EditorState& editorState, float dt);

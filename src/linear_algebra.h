@@ -174,3 +174,64 @@ inline Vec3 Lerp(const Vec3 &a, const Vec3 &b, float s)
 {
   return a + ((b - a) * s);
 }
+
+inline Mat4 CreateMatrixRotationX(float a)
+{
+  Mat4 m = Mat4::Identity();
+  float c = cosf(a), s = sinf(a);
+  m.entries[5]  =  c;
+  m.entries[9]  = -s;
+  m.entries[6]  =  s;
+  m.entries[10] =  c;
+  return m;
+}
+
+inline Mat4 CreateMatrixRotationY(float a)
+{
+  Mat4 m = Mat4::Identity();
+  float c = cosf(a), s = sinf(a);
+  m.entries[0]  =  c;
+  m.entries[8]  =  s;
+  m.entries[2]  = -s;
+  m.entries[10] =  c;
+  return m;
+}
+
+inline Mat4 CreateMatrixRotationZ(float a)
+{
+  Mat4 m = Mat4::Identity();
+  float c = cosf(a), s = sinf(a);
+  m.entries[0] =  c;
+  m.entries[1] =  s;
+  m.entries[4] = -s;
+  m.entries[5] =  c;
+  return m;
+}
+
+// Combined rotation: Yaw (Y) * Pitch (X) * Roll (Z)
+inline Mat4 CreateMatrixRotationXYZ(Vec3 euler)
+{
+  return Mat4Multiply(Mat4Multiply(CreateMatrixRotationY(euler.y),
+                                   CreateMatrixRotationX(euler.x)),
+                      CreateMatrixRotationZ(euler.z));
+}
+
+// Transform a point (w=1) by a 4x4 matrix
+inline Vec3 TransformPoint(const Mat4& m, const Vec3& v)
+{
+  return {
+    m.entries[0]*v.x + m.entries[4]*v.y + m.entries[8]*v.z  + m.entries[12],
+    m.entries[1]*v.x + m.entries[5]*v.y + m.entries[9]*v.z  + m.entries[13],
+    m.entries[2]*v.x + m.entries[6]*v.y + m.entries[10]*v.z + m.entries[14]
+  };
+}
+
+// Transform a direction (w=0) by a 4x4 matrix — no translation applied
+inline Vec3 TransformDir(const Mat4& m, const Vec3& v)
+{
+  return {
+    m.entries[0]*v.x + m.entries[4]*v.y + m.entries[8]*v.z,
+    m.entries[1]*v.x + m.entries[5]*v.y + m.entries[9]*v.z,
+    m.entries[2]*v.x + m.entries[6]*v.y + m.entries[10]*v.z
+  };
+}
