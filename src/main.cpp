@@ -22,13 +22,15 @@ static void glfwErrorCallback(int error, const char *description)
 
 int main(int argc, char *argv[]) {
   if (argc >= 2) {
-    if (argc != 10 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000\n");
+    if (argc != 14 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000 -sdf 10 -r 3\n");
     else {
       isBenchmarking = true;
       std::string commit = "";
       std::string backend = "";
       int profilerParticles = -1;
       int profilerFrames = -1;
+      int profilerColliders = -1;
+      int profilerRuns = -1;
       for (int i = 2; i < argc; i+=2) {
         if (std::strcmp(argv[i], "-c") == 0)
           commit = argv[i + 1];
@@ -36,10 +38,15 @@ int main(int argc, char *argv[]) {
           backend = argv[i + 1];
         if (std::strcmp(argv[i], "-p") == 0)
           profilerParticles = std::stoi(argv[i + 1]);
-	if(std::strcmp(argv[i],"-f") == 0) profilerFrames = std::stoi(argv[i+1]);
+        if (std::strcmp(argv[i], "-f") == 0)
+          profilerFrames = std::stoi(argv[i + 1]);
+        if (std::strcmp(argv[i], "-sdf") == 0)
+          profilerColliders = std::stoi(argv[i + 1]);
+	if (std::strcmp(argv[i], "-r") == 0)
+          profilerRuns = std::stoi(argv[i + 1]);
       }
       if (commit.empty() || backend.empty() || profilerParticles == -1 ||
-          profilerFrames == -1) {
+          profilerFrames == -1 || profilerColliders == -1) {
         printf("Missing required arguments\n");
 	return -1;
       }
@@ -47,17 +54,34 @@ int main(int argc, char *argv[]) {
         runParallel = false;
       std::cout << runParallel << std::endl;
       std::string filepath = "benchmark/logs/" + commit + "-" + backend + "-" +
-	std::to_string(profilerParticles) + "-" + std::to_string(profilerFrames) + ".csv";
-      Profiler::Init(filepath, profilerParticles, profilerFrames, backend,
+	std::to_string(profilerParticles) + "-" + std::to_string(profilerFrames) + "-" + std::to_string(profilerColliders) + "-" + std::to_string(profilerRuns) + ".csv";
+      Profiler::Init(filepath, profilerParticles, profilerColliders, profilerFrames, backend,
                      commit);
       
       std::cout << "filepath: " << filepath << std::endl;
       Particles particles(profilerParticles, smoothingRadius);
 
-      for (int i = 0; i < profilerFrames; ++i) {
+      std::vector<SDFCollider> colliders;
+      GridState grid;
 
+      int count = 0;
+      for (int y = 4; y >= 0 && count < profilerColliders; --y) {
+	for (int z = 1; z <= 3 && count < profilerColliders; ++z) {
+	  for (int x = 1; x <= 3 && count < profilerColliders; ++x) {
+            SDFCollider c;
+            c.type = RGObjectType::S_CHANNEL;
+            c.worldPosition = grid.CellCenterWorld(x, y, z);
+            c.rotationAxes = { Vec3{1,0,0}, Vec3{0,1,0}, Vec3{0,0,1} };
+            c.restitution = energyRetention;
+            colliders.push_back(c);
+            ++count;
+	  }
+	}
+      }
+
+      for (int i = 0; i < profilerFrames; ++i) {
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
-                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, std::vector<SDFCollider>{});
+                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, colliders);
 	currentFrame++;
       }
 

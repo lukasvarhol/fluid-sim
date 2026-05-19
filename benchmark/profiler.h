@@ -14,12 +14,13 @@ enum Phase {
   SOLVER,
   VELOCITY_UPDATE,
   VISCOSITY,
-  VORTICITY
+  VORTICITY,
+  COLLISION_SDF
 };
 
 static const char *EnumToString[] = {
   "gravity_predict", "build_grid", "build_neighbours", "solver",
-  "velocity_update", "viscosity", "vorticity"
+  "velocity_update", "viscosity", "vorticity", "collision_sdf"
 };
 
 struct TimeCouple {
@@ -36,22 +37,24 @@ class Profiler {
   Profiler(const Profiler&) = delete;
   static Profiler &Get() { return instance_; }
   static std::vector<TimeCouple> &GetTimerManager() { return timerManager_; }
-  static void Init(const std::string &filepath, const int numParticles,
+  static void Init(const std::string &filepath, const int numParticles, const int numColliders,
 		   const int numFrames, const std::string backend, const std::string commit) {
     filepath_ = filepath;
     numParticles_ = numParticles;
+    numColliders_ = numColliders;
     numFrames_ = numFrames;
     backend_ = backend;
     commit_ = commit;
-    timerManager_.reserve(numFrames_ * 7);
+    timerManager_.reserve(numFrames_ * 11);
   }
 
   static void Write() {
     std::ofstream out(filepath_.c_str());
-    out << "commit,backend,particle_count,phase,frame,elapsed_us" << std::endl;
+    out << "commit,backend,particle_count,collider_count,phase,frame,elapsed_us" << std::endl;
     for (TimeCouple timer : timerManager_) {
-      out << commit_ << "," << backend_ << "," 
-          << numParticles_ << "," 
+      out << commit_ << "," << backend_ << "," << numParticles_
+          << ","
+	  << numColliders_ << ","
           << EnumToString[timer.phase] << "," << timer.frame << ","
           << (std::chrono::duration_cast<std::chrono::microseconds>(
 								    timer.stopTime - timer.startTime))
@@ -67,6 +70,7 @@ class Profiler {
   static std::string filepath_;
   static int numParticles_;
   static int numFrames_;
+  static int numColliders_;
   static std::string backend_;
   static std::string commit_;
   static std::vector<TimeCouple> timerManager_; 
