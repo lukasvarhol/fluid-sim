@@ -56,7 +56,7 @@ target_include_directories(fluid_core PUBLIC
 find_package(TBB QUIET)
 if(TBB_FOUND)
   message(STATUS "TBB found — using parallel TBB backend")
-  target_link_libraries(fluid_core PRIVATE TBB::tbb)
+  target_link_libraries(fluid_core PUBLIC TBB::tbb)
   target_compile_definitions(fluid_core PUBLIC USE_TBB)
 else()
   message(STATUS "TBB not found — using std::execution backend")

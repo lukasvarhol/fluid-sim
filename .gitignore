@@ -12,3 +12,5 @@
 /.DS_Store
 /docs/.DS_Store
 /file.md
+/.cache
+.DS_Store
