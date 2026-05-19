@@ -192,4 +192,3 @@ std::vector<Vec3> SampleSDFInside(const SDFCollider &collider, float gridStep) {
   }
   return insidePoints;
 }
-

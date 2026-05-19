@@ -244,7 +244,8 @@ int main(int argc, char *argv[]) {
                                               : nullptr,
                     &editorState.grid, editorState.showSelectedCell,
                     editorState.showOccupiedOutlines, cameraState.view, proj,
-                    cameraState.position, std::vector<SDFCollider>{});
+                    cameraState.position,std::vector<SDFCollider>{});
+      //std::vector<SDFCollider>{}
     }
 
     ImGui::Render();

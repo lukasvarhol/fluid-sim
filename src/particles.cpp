@@ -491,7 +491,7 @@ void Particles::TickTrickler(float dt)
   if (tricklerSpawnRate <= 0.0f) return;
 
   tricklerAccum += dt;
-  const float interval = 1.0f / tricklerSpawnRate;
+  const float interval = 1.0f / (tricklerSpawnRate * 100 *  dt);
   std::uniform_real_distribution<float> jitter(-tricklerSpread, tricklerSpread);
 
   while (tricklerAccum >= interval) {

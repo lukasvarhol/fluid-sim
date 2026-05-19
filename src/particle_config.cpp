@@ -2,7 +2,7 @@
 
 bool  tricklerMode      = false;
 float tricklerSpawnRate = 400.0f;
-float tricklerSpread    = 0.05f;
+float tricklerSpread    = 0.045f;
 float tricklerOriginX   = 0.0f;
 float tricklerOriginY   = 0.8f;
 float tricklerOriginZ   = 0.0f;
@@ -12,7 +12,7 @@ float xsphC          =  0.1f;
 float vorticityEpsilon = 1000.0f;
 float scorrCoefficient =  0.000006f;
 float relaxation       =  15000.0f;
-int   numIterations    =  4;
+int   numIterations    =  2;
 float pushStrength     =  15.0f;
 float pullStrength     = -15.0f;
 float pushRadius       =  0.3f;

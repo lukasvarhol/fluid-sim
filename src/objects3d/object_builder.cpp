@@ -112,7 +112,6 @@ void LoadDefaultScene(EditorState& state)
   tricklerOriginY   =  1.0f;
   tricklerOriginZ   =  -0.8f;
   tricklerSpawnRate = 300.0f;
-  tricklerSpread    = 0.022f;
 
   GridState &g = state.grid;
 
