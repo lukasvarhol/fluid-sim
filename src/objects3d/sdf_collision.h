@@ -18,3 +18,14 @@ float sdfDispatch(RGObjectType type, Vec3 localPosition);
 Vec3 sdfGradient(RGObjectType type, Vec3 localPosition);
 void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider& collider);
 std::vector<Vec3> SampleSDFInside(const SDFCollider &collider, float gridStep);
+
+// Triangle Collision (for Benchmarking)
+
+struct TriCollider {
+  std::vector<Vec3> triangles;
+  float restitution;
+};
+
+void ProjectParticleTri(const Vec3 &p, const Vec3 &velocity,
+                        const TriCollider &triCollider, Vec3 &closestPointOut);
+Vec3 ClosestPtPointTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c);

@@ -24,6 +24,10 @@ extern bool isBenchmarking;
 extern int currentFrame;
 extern bool runParallel;
 
+extern bool useTriangleCollisions;
+extern std::vector<TriCollider> gTriColliders;
+extern std::vector<Vec3> gClosestPoints;
+
 struct Particles
 {
 

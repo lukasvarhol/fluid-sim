@@ -1,9 +1,15 @@
 #include "config.h"
 #include <string>
+#include <limits>
+#include "tiny_obj_loader.h"
 
 bool isBenchmarking = false;
 bool runParallel = true;
-int currentFrame = 0; 
+int currentFrame = 0;
+
+bool useTriangleCollisions = false;
+std::vector<TriCollider> gTriColliders;
+std::vector<Vec3> gClosestPoints;
 
 unsigned int MakeShader(const std::string &vertexFilepath, const std::string &fragmentFilepath);
 unsigned int MakeModule(const std::string &filepath, unsigned int moduleType);
@@ -20,13 +26,46 @@ static void glfwErrorCallback(int error, const char *description)
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+// use only for benchmarks
+std::vector<Vec3> LoadOBJTriangles(const std::string &path) {
+  tinyobj::attrib_t attrib;
+  float scale = 0.001f;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string err;
+  std::vector<Vec3> out;
+  bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str());
+  if (!err.empty()) std::cerr << "TinyObjLoader: " << err << "\n";
+  if (!ret)
+    return {};
+
+  for (size_t s = 0; s < shapes.size(); s++) {
+    size_t index_offset = 0;
+    for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+      size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+
+      for (size_t v = 0; v < fv; v++) {
+	tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+	tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
+	tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
+	tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
+        // Y/Z swap and scale
+        out.push_back(Vec3{vx * scale, vz * scale, vy * scale});
+      }
+      index_offset += fv;
+    }
+  }
+  return  out;
+}
+
 int main(int argc, char *argv[]) {
   if (argc >= 2) {
-    if (argc != 14 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000 -sdf 10 -r 3\n");
+    if (argc != 16 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000 -sdf 10 -collision sdf -r 3\n");
     else {
       isBenchmarking = true;
       std::string commit = "";
       std::string backend = "";
+      std::string collisionType = "";
       int profilerParticles = -1;
       int profilerFrames = -1;
       int profilerColliders = -1;
@@ -42,6 +81,8 @@ int main(int argc, char *argv[]) {
           profilerFrames = std::stoi(argv[i + 1]);
         if (std::strcmp(argv[i], "-sdf") == 0)
           profilerColliders = std::stoi(argv[i + 1]);
+	if (std::strcmp(argv[i], "-collision") == 0)
+          collisionType = argv[i + 1];
 	if (std::strcmp(argv[i], "-r") == 0)
           profilerRuns = std::stoi(argv[i + 1]);
       }
@@ -52,8 +93,11 @@ int main(int argc, char *argv[]) {
       }
       if (backend == "cpu-sequential")
         runParallel = false;
+
+      if (collisionType == "tri")
+	useTriangleCollisions = true;
       std::cout << runParallel << std::endl;
-      std::string filepath = "benchmark/logs/" + commit + "-" + backend + "-" +
+      std::string filepath = "benchmark/logs/" + commit + "-" + backend + "-" + collisionType +  "-" +
 	std::to_string(profilerParticles) + "-" + std::to_string(profilerFrames) + "-" + std::to_string(profilerColliders) + "-" + std::to_string(profilerRuns) + ".csv";
       Profiler::Init(filepath, profilerParticles, profilerColliders, profilerFrames, backend,
                      commit);
@@ -64,21 +108,35 @@ int main(int argc, char *argv[]) {
       std::vector<SDFCollider> colliders;
       GridState grid;
 
+      std::vector<Vec3> triangles = LoadOBJTriangles("meshes/SChannel.obj");
+      
       int count = 0;
       for (int y = 4; y >= 0 && count < profilerColliders; --y) {
 	for (int z = 1; z <= 3 && count < profilerColliders; ++z) {
 	  for (int x = 1; x <= 3 && count < profilerColliders; ++x) {
-            SDFCollider c;
-            c.type = RGObjectType::S_CHANNEL;
-            c.worldPosition = grid.CellCenterWorld(x, y, z);
-            c.rotationAxes = { Vec3{1,0,0}, Vec3{0,1,0}, Vec3{0,0,1} };
-            c.restitution = energyRetention;
-            colliders.push_back(c);
-            ++count;
-	  }
-	}
+	    if (!useTriangleCollisions) {
+	      SDFCollider c;
+	      c.type = RGObjectType::S_CHANNEL;
+	      c.worldPosition = grid.CellCenterWorld(x, y, z);
+	      c.rotationAxes = { Vec3{1,0,0}, Vec3{0,1,0}, Vec3{0,0,1} };
+	      c.restitution = energyRetention;
+	      colliders.push_back(c);
+	      ++count;
+	    } else  {
+              TriCollider tc;
+              Vec3 cellCenter = grid.CellCenterWorld(x, y, z);
+              for (Vec3 v : triangles) {
+                tc.triangles.push_back(v + cellCenter);
+              }
+              tc.restitution = energyRetention;
+              gTriColliders.push_back(tc);
+	      ++count;
+            }
+          }
+        }
       }
-
+      gClosestPoints.resize(profilerParticles); 
+      	    
       for (int i = 0; i < profilerFrames; ++i) {
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
                          Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, colliders);

@@ -15,12 +15,13 @@ enum Phase {
   VELOCITY_UPDATE,
   VISCOSITY,
   VORTICITY,
-  COLLISION_SDF
+  COLLISION_SDF,
+  COLLISION_TRI_BRUTE
 };
 
 static const char *EnumToString[] = {
   "gravity_predict", "build_grid", "build_neighbours", "solver",
-  "velocity_update", "viscosity", "vorticity", "collision_sdf"
+  "velocity_update", "viscosity", "vorticity", "collision_sdf", "collision_tri_brute"
 };
 
 struct TimeCouple {
