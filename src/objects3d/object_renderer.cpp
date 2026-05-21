@@ -456,10 +456,6 @@ void LoadOBJ(const std::string &path, MeshData &out, float scale, bool flipWindi
       out.indices.push_back(out.indices.size());
     }
   }
-  printf("LoadOBJ %s: first face normal = (%.3f, %.3f, %.3f), vertex count = %zu\n",
-	 path.c_str(),
-	 out.vertices[3], out.vertices[4], out.vertices[5],
-	 out.vertices.size() / 6);
   out.indexCount = (int)out.indices.size();
 
   glGenVertexArrays(1, &out.VAO);

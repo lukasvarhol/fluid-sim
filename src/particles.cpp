@@ -273,10 +273,22 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       ParallelFor(activeParticles, [&](int i) {
 	predictedPositions[i] += deltas[i];
         ClampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
-	for (const SDFCollider& collider : colliders)
-          ProjectParticleSDF(predictedPositions[i], velocities[i], collider);
       });
 
+      if (!useTriangleCollisions) {
+        Profiler::Timer timer(COLLISION_SDF, currentFrame, isBenchmarking);
+        ParallelFor(activeParticles, [&](int i) {
+	  for (const SDFCollider& collider : colliders)
+            ProjectParticleSDF(predictedPositions[i], velocities[i], collider);
+	});
+      } else {
+        Profiler::Timer timer(COLLISION_TRI_BRUTE, currentFrame,
+                              isBenchmarking);
+        ParallelFor(activeParticles, [&](int i) {
+          for (const TriCollider &collider : gTriColliders)
+	    ProjectParticleTri(predictedPositions[i], velocities[i], collider, gClosestPoints[i]);
+        });
+      }
     }
   }
 
