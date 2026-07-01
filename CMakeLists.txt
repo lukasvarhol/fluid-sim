@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 project(fluid-sim VERSION 0.1.0 LANGUAGES CXX C)
 
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  enable_language(CUDA)
+else()
+  message(STATUS "No CUDA support")
+endif()
+
+
 option(BUILD_BENCHMARKS "Build Google Benchmark targets" OFF)
 
 set(CMAKE_CXX_STANDARD 20)

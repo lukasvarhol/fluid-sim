@@ -1,5 +1,6 @@
 #include "config.h"
 #include <string>
+#include <cstring>
 #include <limits>
 #include "tiny_obj_loader.h"
 
