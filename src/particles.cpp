@@ -202,6 +202,11 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(GRAVITY_PREDICT, currentFrame, isBenchmarking);
     oldPositions = positions;
+#ifdef USE_CUDA
+    gravityPredict(positions, velocities, predictedPositions, gravity,
+                   mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
+                   numParticles); 
+#else
     for (int i = 0; i < activeParticles; ++i) {
     
       velocities[i] += Vec3{0.0f, gravity, 0.0f} * dt;   // gravity along –Y
@@ -223,6 +228,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       }
       predictedPositions[i] = positions[i] + velocities[i] * dt;
     }
+#endif
   }
 
   // 2. spatial data structures

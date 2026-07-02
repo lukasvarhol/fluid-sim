@@ -1,13 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(fluid-sim VERSION 0.1.0 LANGUAGES CXX C)
 
-include(CheckLanguage)
-check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
-  enable_language(CUDA)
-else()
-  message(STATUS "No CUDA support")
-endif()
 
 
 option(BUILD_BENCHMARKS "Build Google Benchmark targets" OFF)
@@ -18,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---- Core library (simulation / math only) ----
 add_library(
   fluid_core
+  src/particles.cu
   src/particles.cpp
   src/linear_algebra.h
   src/cell.h
@@ -61,15 +55,32 @@ target_include_directories(fluid_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+include(CheckLanguage)
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+  enable_language(CUDA)
+  find_package(CUDAToolkit QUIET)
+  if(CUDAToolkit_FOUND)
+    message(STATUS "CUDA found: enabling GPU acceleration")
+    target_link_libraries(fluid_core PUBLIC CUDA::cudart)
+    target_compile_definitions(fluid_core PUBLIC USE_CUDA)
+  endif()
+else()
+  message(STATUS "No CUDA support")
+endif()
+
+
+
 # TBB — used on platforms where std::execution::par_unseq is unavailable (e.g. Mac)
 find_package(TBB QUIET)
 if(TBB_FOUND)
-  message(STATUS "TBB found — using parallel TBB backend")
+  message(STATUS "TBB found: using parallel TBB backend as backup")
   target_link_libraries(fluid_core PUBLIC TBB::tbb)
   target_compile_definitions(fluid_core PUBLIC USE_TBB)
 else()
-  message(STATUS "TBB not found — using std::execution backend")
+  message(STATUS "TBB not found: using std::execution backend as backup")
 endif()
+
 
 # ---- App ----
 if(NOT BUILD_BENCHMARKS)

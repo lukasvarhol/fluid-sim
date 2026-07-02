@@ -33,6 +33,7 @@
             libxcursor
             libxi
             libGL
+            onetbb
           ];
           shellHook = ''
             export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/wsl/lib

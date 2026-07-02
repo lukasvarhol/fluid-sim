@@ -4,6 +4,12 @@
 #include <cassert>
 #include <cmath>
 
+#ifdef __CUDACC__
+#define DEVICE_CALLABLE __host__ __device__
+#else
+#define DEVICE_CALLABLE 
+#endif
+
 constexpr float PI = 3.14159265358979323846f;
 
 struct Mat4 {
@@ -44,30 +50,79 @@ struct Vec2 {
 struct Vec3 {
   float x, y, z;
 
-  float Magnitude() const { return std::sqrt(x*x + y*y + z*z); }
+  DEVICE_CALLABLE
+  float Magnitude() const { return std::sqrt(x * x + y * y + z * z); }
+  DEVICE_CALLABLE
   float Dot(const Vec3& o) const { return x*o.x + y*o.y + z*o.z; }
 
-  Vec3& operator+=(const Vec3& o) { x+=o.x; y+=o.y; z+=o.z; return *this; }
-  Vec3& operator-=(const Vec3& o) { x-=o.x; y-=o.y; z-=o.z; return *this; }
-  Vec3& operator*=(const Vec3& o) { x*=o.x; y*=o.y; z*=o.z; return *this; }
-  Vec3& operator/=(const Vec3& o) { x/=o.x; y/=o.y; z/=o.z; return *this; }
+  DEVICE_CALLABLE
+  Vec3 &operator+=(const Vec3 &o) {
+    x += o.x;
+    y += o.y;
+    z += o.z;
+    return *this;
+  }
+  DEVICE_CALLABLE
+  Vec3 &operator-=(const Vec3 &o) {
+    x -= o.x;
+    y -= o.y;
+    z -= o.z;
+    return *this;
+  }
+  DEVICE_CALLABLE
+  Vec3 &operator*=(const Vec3 &o) {
+    x *= o.x;
+    y *= o.y;
+    z *= o.z;
+    return *this;
+  }
+  DEVICE_CALLABLE
+  Vec3 &operator/=(const Vec3 &o) {
+    x /= o.x;
+    y /= o.y;
+    z /= o.z;
+    return *this;
+  }
 
-  Vec3 operator+(const Vec3& o) const { return {x+o.x, y+o.y, z+o.z}; }
-  Vec3 operator-(const Vec3& o) const { return {x-o.x, y-o.y, z-o.z}; }
-  Vec3 operator*(const Vec3& o) const { return {x*o.x, y*o.y, z*o.z}; }
+  DEVICE_CALLABLE
+  Vec3 operator+(const Vec3 &o) const { return {x + o.x, y + o.y, z + o.z}; }
+
+  DEVICE_CALLABLE
+  Vec3 operator-(const Vec3 &o) const { return {x - o.x, y - o.y, z - o.z}; }
+
+  DEVICE_CALLABLE
+  Vec3 operator*(const Vec3 &o) const { return {x * o.x, y * o.y, z * o.z}; }
+  DEVICE_CALLABLE
   Vec3 operator/(const Vec3& o) const { return {x/o.x, y/o.y, z/o.z}; }
 
-  Vec3& operator*=(float s) { x*=s; y*=s; z*=s; return *this; }
-  Vec3& operator/=(float s) { float r=1.f/s; x*=r; y*=r; z*=r; return *this; }
-  Vec3 operator*(float s) const { return {x*s, y*s, z*s}; }
+  DEVICE_CALLABLE
+  Vec3 &operator*=(float s) {
+    x *= s;
+    y *= s;
+    z *= s;
+    return *this;
+  }
+  DEVICE_CALLABLE
+  Vec3 &operator/=(float s) {
+    float r = 1.f / s;
+    x *= r;
+    y *= r;
+    z *= r;
+    return *this;
+  }
+  DEVICE_CALLABLE
+  Vec3 operator*(float s) const { return {x * s, y * s, z * s}; }
+  DEVICE_CALLABLE
   Vec3 operator/(float s) const { float r = 1.f / s; return {x * r, y * r, z * r}; }
 };
 
+DEVICE_CALLABLE
 inline Vec3 Normalize(const Vec3& v)
 {
   return v / v.Magnitude();
 }
 
+DEVICE_CALLABLE
 inline Vec3 Cross(const Vec3& a, const Vec3& b)
 {
   return {

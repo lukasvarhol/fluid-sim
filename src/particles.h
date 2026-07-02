@@ -1,3 +1,4 @@
+
 #pragma once
 #include <vector>
 #include <iostream>
@@ -19,6 +20,11 @@
 #endif
 #include <algorithm>
 #include <random>
+
+#ifdef USE_CUDA
+#include <cuda_runtime.h>
+#include "particles.cuh"
+#endif
 
 extern bool isBenchmarking;
 extern int currentFrame;
