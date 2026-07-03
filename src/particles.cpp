@@ -53,6 +53,8 @@ Particles::Particles(int n, float smoothingRadius)
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
+
+  cbp = std::make_unique<CudaBuffers>(positions, velocities, predictedPositions, numParticles);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +205,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(GRAVITY_PREDICT, currentFrame, isBenchmarking);
     oldPositions = positions;
 #ifdef USE_CUDA
-    gravityPredict(positions, velocities, predictedPositions, gravity,
+    CudaBuffers& cb = *cbp;
+    gravityPredict(cb, positions, velocities, predictedPositions, gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
                    numParticles); 
 #else
@@ -593,3 +596,4 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
     tricklerAccum   = 0.0f;
   }
 }
+

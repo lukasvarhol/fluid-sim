@@ -24,6 +24,7 @@
 #ifdef USE_CUDA
 #include <cuda_runtime.h>
 #include "particles.cuh"
+#include "cuda_buffers.cuh"
 #endif
 
 extern bool isBenchmarking;
@@ -33,6 +34,8 @@ extern bool runParallel;
 extern bool useTriangleCollisions;
 extern std::vector<TriCollider> gTriColliders;
 extern std::vector<Vec3> gClosestPoints;
+
+
 
 struct Particles
 {
@@ -69,7 +72,11 @@ struct Particles
   std::vector<Vec3>  deltas;
   std::vector<Vec3>  oldPositions;
   std::vector<Vec3> vorticity;
-  std::vector<float> omegaMag;  
+  std::vector<float> omegaMag;
+
+#ifdef USE_CUDA
+  std::unique_ptr<CudaBuffers> cbp;
+#endif
 
   std::vector<int> neighbourData;   // size nParticles * MAX_NEIGHBOURS
   std::vector<int> neighbourCount;  // size nParticles 
@@ -111,3 +118,5 @@ private:
   void  TickTrickler(float dt);
   inline int CellIndex(int cx, int cy, int cz) const;
 };
+
+

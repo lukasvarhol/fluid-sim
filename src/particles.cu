@@ -5,7 +5,8 @@
  *
  ******************************************************************************/
 __global__ void gravityPredictKernel(Vec3 *positions, Vec3 *velocities,
-                                     Vec3 *predictedPositions, float gravity,
+                                     Vec3 *predictedPositions,
+                                     float gravity,
                                      float mouseStrength, float mouseRadius,
                                      Vec3 rayOrigin, Vec3 rayDir, float dt,
                                      int n) {
@@ -33,32 +34,40 @@ __global__ void gravityPredictKernel(Vec3 *positions, Vec3 *velocities,
   }
 }
 
-void gravityPredict(std::vector<Vec3> &positions_h,
+void gravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
                     std::vector<Vec3> &velocities_h,
                     std::vector<Vec3> &predictedPositions_h, float gravity,
                     float mouseStrength, float mouseRadius, Vec3 rayOrigin,
                     Vec3 rayDir, float dt, int n) {
 
-  Vec3 *positions_d, *velocities_d, *predictedPositions_d;
+  //Vec3 *positions_d, *velocities_d, *predictedPositions_d;
   size_t size = n * sizeof(Vec3);
 
-  cudaMalloc((void **)&positions_d, size);
-  cudaMalloc((void **)&velocities_d, size);
-  cudaMalloc((void **)&predictedPositions_d, size);
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
 
-  cudaMemcpy(positions_d, positions_h.data(), size, cudaMemcpyHostToDevice);
-  cudaMemcpy(velocities_d, velocities_h.data(), size, cudaMemcpyHostToDevice);
-
-  gravityPredictKernel<<<ceil(n / 256.0), 256>>>(
-      positions_d, velocities_d, predictedPositions_d, gravity, mouseStrength,
+  cudaEventRecord(start);
+  
+  cudaMemcpy(cb.positions_d, positions_h.data(), size, cudaMemcpyHostToDevice);
+  cudaMemcpy(cb.velocities_d, velocities_h.data(), size, cudaMemcpyHostToDevice);
+  
+  gravityPredictKernel<<<ceil(n / 384.0), 384>>>(
+      cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity, mouseStrength,
       mouseRadius, rayOrigin, rayDir, dt, n);
 
-  cudaMemcpy(predictedPositions_h.data(), predictedPositions_d, size,
+  cudaMemcpy(predictedPositions_h.data(), cb.predictedPositions_d, size,
              cudaMemcpyDeviceToHost);
 
-  cudaFree(positions_d);
-  cudaFree(velocities_d);
-  cudaFree(predictedPositions_d);
+  cudaEventRecord(stop);
+
+  cudaEventSynchronize(stop);
+  float miliseconds = 0.0f;
+  cudaEventElapsedTime(&miliseconds, start, stop);
+  printf("Execution time: %f miliseconds \n", miliseconds);
+  
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
 }
 
 

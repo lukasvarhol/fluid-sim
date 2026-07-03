@@ -19,6 +19,7 @@
       devShells.${system} = rec {
         bash = mkShell {
           buildInputs = [
+            cudaPackages.nsight_compute
             cudatoolkit
             gcc
             cmake
