@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(
   fluid_core
   src/particles.cu
+  src/cuda_buffers.cu
   src/particles.cpp
   src/linear_algebra.h
   src/cell.h
