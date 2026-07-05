@@ -1,7 +1,7 @@
 #pragma once
 #include "linear_algebra.h"
 
-#define BLOCK_SIZE 128
+#define BLOCK_SIZE 256
 
 struct Particles;
 
@@ -12,6 +12,7 @@ public:
   CudaBuffers &operator=(const CudaBuffers &cb) = delete;
   ~CudaBuffers();
   void printError(const cudaError_t err) const;
+  void handleCellGridUpdate(int numCells1D);
 
   Vec3 *positions_d;
   Vec3 *velocities_d;
@@ -19,6 +20,7 @@ public:
   int *gridCount_d;
   int *gridStart_d;
   int *gridData_d;
+  int *insertPos_d = NULL;
 
   int *sumsL1_d = NULL;
   int *sumsL2_d = NULL;

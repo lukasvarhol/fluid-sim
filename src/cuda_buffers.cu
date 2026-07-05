@@ -26,11 +26,13 @@ CudaBuffers::CudaBuffers(Particles& particles) {
   err = cudaMalloc((void **)&gridCount_d, spaceGridSize);
   printError(err); // TODO: refactor out into free function "CUDA_ERROR"
 
- err = cudaMalloc((void **)&gridStart_d, spaceGridSize);
+  err = cudaMalloc((void **)&gridStart_d, (numCells + 1) * sizeof(int));
  printError(err); // TODO: refactor out into free function "CUDA_ERROR"
 
  err = cudaMalloc((void **)&gridData_d, activeSize);
- printError(err); 
+ printError(err);
+
+ handleCellGridUpdate(particles.numCells1D);
 
  if (blocksPerGridL2 == 1) {
     err = cudaMalloc((void **)&sumsL1_d, blocksPerGridL1 * sizeof(int));
@@ -76,6 +78,8 @@ CudaBuffers::~CudaBuffers() {
   printError(err);
   err = cudaFree(gridData_d);
   printError(err);
+  err = cudaFree(insertPos_d);
+  printError(err);
 
   if (blocksPerGridL2 == 1 || blocksPerGridL3 == 1) {
     err = cudaFree(sumsL1_d);
@@ -98,4 +102,16 @@ void CudaBuffers::printError(const cudaError_t err) const {
 	   __LINE__);
     exit(EXIT_FAILURE);
   }
+}
+
+void CudaBuffers::handleCellGridUpdate(int numCells1D) {
+  cudaError_t err;
+  if (insertPos_d != nullptr) {
+    err = cudaFree(insertPos_d);
+    CudaBuffers::printError(err);
+  }
+
+  err = cudaMalloc((void **)&insertPos_d,
+                   numCells1D * numCells1D * numCells1D * sizeof(int));
+  CudaBuffers::printError(err);
 }

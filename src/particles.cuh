@@ -10,4 +10,6 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
                     float mouseStrength, float mouseRadius, Vec3 rayOrigin,
                     Vec3 rayDir, float dt, int n);
 
-void gpuBuildGrid(CudaBuffers& cb, float smoothingRadius, int numCells1D, int activeParticles);
+void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
+                  int *gridData_h, float smoothingRadius, int numCells1D,
+                  int activeParticles);

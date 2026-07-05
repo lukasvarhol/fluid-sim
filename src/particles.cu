@@ -65,6 +65,7 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
   //Vec3 *positions_d, *velocities_d, *predictedPositions_d;
   size_t size = n * sizeof(Vec3);
 
+
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -77,24 +78,31 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
   gravityPredictKernel<<<ceil(n / 384.0), 384>>>(
       cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
       mouseStrength, mouseRadius, rayOrigin, rayDir, dt, n);
-  
+
 
   cudaMemcpy(predictedPositions_h.data(), cb.predictedPositions_d, size,
              cudaMemcpyDeviceToHost);
-
+  
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
-  // float miliseconds = 0.0f;
-  // cudaEventElapsedTime(&miliseconds, start, stop);
-  // printf("Execution time: %f miliseconds \n", miliseconds);
   
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
 }
 
 /*******************************************************************************
- * Work-efficient (Blelloch) scan
+ * @brief Work-efficient (Blelloch) scan
+ *
+ * Multi-layered tree-scan exclusive prefix-scan implementation to find the
+ * region in which to write particles to in the cell grid.
+ *
+ * @note BLOCK_SIZE is currently a preprocessor directive.
+ *
+ * @param output pointer to output array.
+ * @param input pointer to input array.
+ * @param n number of elements.
+ * @param SUM sum from previous layer.
  ******************************************************************************/
 __global__ void scanKernel(int *output, int *input, int n, int* SUM) {
   __shared__ int temp[(BLOCK_SIZE << 1) + (BLOCK_SIZE)];
@@ -163,6 +171,16 @@ __global__ void scanKernel(int *output, int *input, int n, int* SUM) {
   }
 }
 
+/*******************************************************************************
+ * @brief Places particles in their cells
+ *
+ * @param predictedPositions pointer to predicted positions array
+ * @param gridCount pointer to array that stores the number of particles per
+ * cell.
+ * @param smoothingRadius area of influence parameeter.
+ * @param numCells1D number of cells in one dimension (assumes cube grid)
+ * @param activeParticles number of particles to handle.
+ ******************************************************************************/
 __global__
 void particleToCellKernel(Vec3 *predictedPositions, int* gridCount, float smoothingRadius,
 		     int numCells1D, int activeParticles) {
@@ -189,7 +207,22 @@ __global__ void uniformAddKernel(int *output, int n, int *INCR) {
   }
 }
 
-void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
+__global__ void fillGridKernel(int *gridData, int* insertPos, Vec3 *predictedPositions,
+                               float smoothingRadius, int numCells1D, int activeParticles) {
+
+  int i = threadIdx.x + (blockIdx.x * blockDim.x);
+
+  if (i < activeParticles) {
+    Cell c =
+        PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
+    int idx = CellIndex(c.x, c.y, c.z, numCells1D);
+    int beforeIncrement = atomicAdd(&insertPos[idx], 1);
+    gridData[beforeIncrement] = i;
+  }
+}
+
+void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
+                  int *gridData_h, float smoothingRadius, int numCells1D,
                   int activeParticles) {
 
   cudaEvent_t start, stop;
@@ -198,13 +231,17 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
 
   cudaEventRecord(start);
   
+  int numCells = numCells1D * numCells1D * numCells1D;
+  size_t size = numCells * sizeof(int);
+
+  cudaMemset(cb.gridCount_d, 0, numCells * sizeof(int));
+
   /* ------ Phase 1: assign particle to cell ------ */
   particleToCellKernel<<<ceil(activeParticles / 384.0), 384>>>(
       cb.predictedPositions_d, cb.gridCount_d, smoothingRadius, numCells1D,
       activeParticles);
 
   /* ------ Phase 2: Parallel Prefix Sum ------ */
-  int numCells = numCells1D * numCells1D * numCells1D;
 
   if (cb.blocksPerGridL1 == 1) {
     scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, cb.gridCount_d,
@@ -244,10 +281,19 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
     exit(EXIT_FAILURE);
   }
 
-
   /* ------ Phase 3: Parallel Scatter ------ */
+  cudaMemcpy(cb.insertPos_d, cb.gridStart_d, size,
+             cudaMemcpyDeviceToDevice);
 
-  
+  fillGridKernel<<<ceil(activeParticles / 384.0), 384>>>(
+      cb.gridData_d, cb.insertPos_d, cb.predictedPositions_d, smoothingRadius,
+      numCells1D, activeParticles);
+
+  cudaMemcpy(gridStart_h, cb.gridStart_d, (numCells + 1) * sizeof(int),
+             cudaMemcpyDeviceToHost);
+  gridStart_h[numCells] = activeParticles;
+  cudaMemcpy(gridData_h, cb.gridData_d, activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(gridCount_h, cb.gridCount_d, size, cudaMemcpyDeviceToHost);
 
   cudaEventRecord(stop);
 
@@ -259,7 +305,3 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
 }
-
-
-
-

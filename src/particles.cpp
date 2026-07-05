@@ -225,9 +225,13 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(BUILD_GRID, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
     CudaBuffers& cb = *cbp;
-    gpuBuildGrid(cb, smoothingRadius, numCells1D, activeParticles);
+    gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
+                 smoothingRadius, numCells1D, activeParticles);
 #else
+    auto t0 = clk::now();
     BuildGrid(smoothingRadius);
+    auto t1 = clk::now();
+    std::cout << "Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
 #endif
   }
   {
@@ -580,6 +584,11 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
+
+#ifdef USE_CUDA
+  CudaBuffers& cb = *cbp;
+  cb.handleCellGridUpdate(numCells1D);
+#endif
   
   if (tricklerMode) {
     activeParticles = 0;
