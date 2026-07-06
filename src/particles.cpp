@@ -54,7 +54,7 @@ Particles::Particles(int n, float smoothingRadius)
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
 
-  cbp = std::make_unique<CudaBuffers>(positions, velocities, predictedPositions, numParticles);
+  cbp = std::make_unique<CudaBuffers>(*this);
 }
 
 // ---------------------------------------------------------------------------
@@ -81,22 +81,8 @@ void Particles::InitialiseParticles(int n, float spacing)
 }
 
 // ---------------------------------------------------------------------------
-Cell Particles::PositionToCoord(Vec3 position, float smoothingRadius)
-{
-  int cx = (int)((position.x + 1.0f) / smoothingRadius);
-  int cy = (int)((position.y + 1.0f) / smoothingRadius);
-  int cz = (int)((position.z + 1.0f) / smoothingRadius);
-  cx = std::max(0, std::min(numCells1D - 1, cx));
-  cy = std::max(0, std::min(numCells1D - 1, cy));
-  cz = std::max(0, std::min(numCells1D - 1, cz));
-  return Cell{cx, cy, cz};
-}
 
-// Flat 3-D cell index
-inline int Particles::CellIndex(int cx, int cy, int cz) const
-{
-  return cx * numCells1D * numCells1D + cy * numCells1D + cz;
-}
+
 
 void Particles::BuildGrid(float smoothingRadius)
 {
@@ -105,8 +91,8 @@ void Particles::BuildGrid(float smoothingRadius)
 
   // pass 1: count
   for (int i = 0; i < activeParticles; ++i) {
-    Cell c = PositionToCoord(predictedPositions[i], smoothingRadius);
-    ++gridCount[CellIndex(c.x, c.y, c.z)];
+    Cell c = PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
+    ++gridCount[CellIndex(c.x, c.y, c.z, numCells1D)];
   }
 
   gridStart[0] = 0;
@@ -118,8 +104,8 @@ void Particles::BuildGrid(float smoothingRadius)
   std::vector<int> insertPos(gridStart.begin(), gridStart.begin() + numCells);
 
   for (int i = 0; i < activeParticles; ++i) {
-    Cell c = PositionToCoord(predictedPositions[i], smoothingRadius);
-    int idx = CellIndex(c.x, c.y, c.z);
+    Cell c = PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
+    int idx = CellIndex(c.x, c.y, c.z, numCells1D);
     gridData[insertPos[idx]++] = i;
   }
 }
@@ -130,7 +116,7 @@ void Particles::BuildNeighbours(float smoothingRadius)
   ParallelFor(activeParticles, [&](int i) {
     int count = 0;
     int *myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
-    Cell cell = PositionToCoord(predictedPositions[i], smoothingRadius);
+    Cell cell = PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
 
     for (int ox = -1; ox <= 1; ++ox)
       for (int oy = -1; oy <= 1; ++oy)
@@ -142,7 +128,7 @@ void Particles::BuildNeighbours(float smoothingRadius)
               cz >= numCells1D)
             continue;
 
-          int idx = CellIndex(cx, cy, cz);
+          int idx = CellIndex(cx, cy, cz, numCells1D);
           for (int k = gridStart[idx]; k < gridStart[idx + 1]; ++k) {
             int j = gridData[k];
             Vec3 diff = predictedPositions[j] - predictedPositions[i];
@@ -206,7 +192,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     oldPositions = positions;
 #ifdef USE_CUDA
     CudaBuffers& cb = *cbp;
-    gravityPredict(cb, positions, velocities, predictedPositions, gravity,
+    gpuGravityPredict(cb, positions, velocities, predictedPositions, gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
                    numParticles); 
 #else
@@ -214,7 +200,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     
       velocities[i] += Vec3{0.0f, gravity, 0.0f} * dt;   // gravity along –Y
 
-      if (mouseStrength != 0.0f) {
+      if (mouseStrength != 0.0f && mouseRadius != 0.0f) {
 	Vec3  toParticle = positions[i] - rayOrigin;
 	// project onto ray, then get perpendicular distance
 	float along      = toParticle.Dot(rayDir);
@@ -237,12 +223,24 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   // 2. spatial data structures
   {
     Profiler::Timer timer(BUILD_GRID, currentFrame, isBenchmarking);
+#ifdef USE_CUDA
+    CudaBuffers& cb = *cbp;
+    gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
+                 smoothingRadius, numCells1D, activeParticles);
+#else
+    auto t0 = clk::now();
     BuildGrid(smoothingRadius);
+    auto t1 = clk::now();
+    std::cout << "BUILDGRID Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
+#endif
   }
   {
     Profiler::Timer timer(BUILD_NEIGHBOURS, currentFrame, isBenchmarking);
     if (NeedsNeighbourRebuild()) {
+      // auto t0 = clk::now();
       BuildNeighbours(smoothingRadius);
+      // auto t1 = clk::now();
+      // std::cout << "BUILD NEIGHBOURS Execution time CPU: " << us(t0,t1) / 1000.0f << " ms" << std::endl;
       positionsAtLastBuild = predictedPositions;
     }
   }
@@ -589,6 +587,11 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
+
+#ifdef USE_CUDA
+  CudaBuffers& cb = *cbp;
+  cb.handleCellGridUpdate(numCells1D);
+#endif
   
   if (tricklerMode) {
     activeParticles = 0;

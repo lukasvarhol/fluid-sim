@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(
   fluid_core
   src/particles.cu
+  src/cuda_buffers.cu
   src/particles.cpp
   src/linear_algebra.h
   src/cell.h
@@ -64,6 +65,7 @@ if(CMAKE_CUDA_COMPILER)
     message(STATUS "CUDA found: enabling GPU acceleration")
     target_link_libraries(fluid_core PUBLIC CUDA::cudart)
     target_compile_definitions(fluid_core PUBLIC USE_CUDA)
+    target_compile_options(fluid_core PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
   endif()
 else()
   message(STATUS "No CUDA support")

@@ -23,8 +23,8 @@
 
 #ifdef USE_CUDA
 #include <cuda_runtime.h>
-#include "particles.cuh"
 #include "cuda_buffers.cuh"
+#include "particles.cuh"
 #endif
 
 extern bool isBenchmarking;
@@ -34,8 +34,6 @@ extern bool runParallel;
 extern bool useTriangleCollisions;
 extern std::vector<TriCollider> gTriColliders;
 extern std::vector<Vec3> gClosestPoints;
-
-
 
 struct Particles
 {
@@ -63,6 +61,7 @@ struct Particles
   int activeParticles;
   int nextRecycleIdx  = 0;
   float tricklerAccum = 0.0f;
+  int numCells1D;
 
   std::vector<Vec3>  positions;
   std::vector<Vec3>  predictedPositions;
@@ -73,6 +72,11 @@ struct Particles
   std::vector<Vec3>  oldPositions;
   std::vector<Vec3> vorticity;
   std::vector<float> omegaMag;
+
+  std::vector<int> gridData;
+  std::vector<int> gridStart;
+  std::vector<int> gridCount;
+
 
 #ifdef USE_CUDA
   std::unique_ptr<CudaBuffers> cbp;
@@ -95,20 +99,18 @@ struct Particles
   void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz);
   void ResetTrickler();
 
+  
+
 private:
-  int   numCells1D;
+  
   float restDensity;
   std::mt19937 rng{std::random_device{}()};
 
-  std::vector<int> gridData;   
-  std::vector<int> gridStart;  
-  std::vector<int> gridCount;  
 
   void  ClampToBoundaries(Vec3* pos, float radiusPx, const int g_fb_w, const int g_fb_h);
   void  InitialiseParticles(int numParticles, float spacing);
   float CalculateDistance(Vec3 posA, Vec3 posB);
   float CalculateDensity(size_t particleIdx, float smoothingRadius);
-  Cell  PositionToCoord(Vec3 position, float smoothingRadius);
   void  BuildGrid(float smoothingRadius);
   void  BuildNeighbours(float smoothingRadius);
   float CalculateLambda(size_t particleIdx, float smoothingRadius);
@@ -116,7 +118,23 @@ private:
   float Scorr(Vec3 pi, Vec3 pj, float h);
   bool  NeedsNeighbourRebuild();
   void  TickTrickler(float dt);
-  inline int CellIndex(int cx, int cy, int cz) const;
 };
 
+DEVICE_CALLABLE
+inline Cell PositionToCoord(Vec3 position, float smoothingRadius,
+                            int numCells1D) {
+  int cx = (int)((position.x + 1.0f) / smoothingRadius);
+  int cy = (int)((position.y + 1.0f) / smoothingRadius);
+  int cz = (int)((position.z + 1.0f) / smoothingRadius);
+  cx = std::max(0, std::min(numCells1D - 1, cx));
+  cy = std::max(0, std::min(numCells1D - 1, cy));
+  cz = std::max(0, std::min(numCells1D - 1, cz));
+  return Cell{cx, cy, cz};
+}
 
+// Flat 3-D cell index
+DEVICE_CALLABLE
+inline int CellIndex(int cx, int cy, int cz, int numCells1D)
+{
+  return cx * numCells1D * numCells1D + cy * numCells1D + cz;
+}

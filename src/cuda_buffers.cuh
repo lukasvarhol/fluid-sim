@@ -1,53 +1,35 @@
 #pragma once
-#include "particles.h"
+#include "linear_algebra.h"
 
+#define BLOCK_SIZE 256
 
+struct Particles;
 
 class CudaBuffers {
 public:
-  CudaBuffers(std::vector<Vec3> &positions,
-                      std::vector<Vec3> &velocities,
-                      std::vector<Vec3> &predictedPositions, int numParticles) {
-    size_t size = numParticles * sizeof(Vec3);
-    cudaError_t err;
-    err = cudaMalloc((void **)&positions_d, size);
-    printError(err);
-
-    err = cudaMalloc((void **)&velocities_d, size);
-    printError(err);
-
-    err = cudaMalloc((void **)&predictedPositions_d, size);
-    printError(err);
-
-    cudaMemcpy(positions_d, positions.data(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(velocities_d, velocities.data(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(predictedPositions_d, predictedPositions.data(), size, cudaMemcpyHostToDevice);
-  }
-
+  CudaBuffers(Particles &particles);
   CudaBuffers(const CudaBuffers &cb) = delete;
-
   CudaBuffers &operator=(const CudaBuffers &cb) = delete;
+  ~CudaBuffers();
+  void printError(const cudaError_t err) const;
+  void handleCellGridUpdate(int numCells1D);
 
-  ~CudaBuffers() {
-    cudaError_t err;
-    err = cudaFree(positions_d);
-    printError(err);
-
-    err = cudaFree(velocities_d);
-    printError(err);
-    err = cudaFree(predictedPositions_d);
-    printError(err);
-  }
-
-  Vec3* positions_d;
-  Vec3* velocities_d;
+  Vec3 *positions_d;
+  Vec3 *velocities_d;
   Vec3 *predictedPositions_d;
+  int *gridCount_d;
+  int *gridStart_d;
+  int *gridData_d;
+  int *insertPos_d = NULL;
 
-  void printError(const cudaError_t err) const {
-    if (err != cudaSuccess) {
-      printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
-             __LINE__);
-      exit(EXIT_FAILURE);
-    }
-  }
+  int *sumsL1_d = NULL;
+  int *sumsL2_d = NULL;
+  int *incrL1_d = NULL;
+  int *incrL2_d = NULL;
+
+  int blocksPerGridL1;
+  int blocksPerGridL2;
+  int blocksPerGridL3;
+
 };
+
