@@ -62,9 +62,7 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
 		       float mouseStrength, float mouseRadius, Vec3 rayOrigin,
 		       Vec3 rayDir, float dt, int n) {
 
-  //Vec3 *positions_d, *velocities_d, *predictedPositions_d;
   size_t size = n * sizeof(Vec3);
-
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -94,6 +92,9 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
 /*******************************************************************************
  * @brief Work-efficient (Blelloch) scan
  *
+ * Author: TVycas
+ * Availability: github.com/TVycas/CUDA-Parallel-Prefix-Sum/
+ * 
  * Multi-layered tree-scan exclusive prefix-scan implementation to find the
  * region in which to write particles to in the cell grid.
  *
@@ -175,9 +176,9 @@ __global__ void scanKernel(int *output, int *input, int n, int* SUM) {
  * @brief Places particles in their cells
  *
  * @param predictedPositions pointer to predicted positions array
- * @param gridCount pointer to array that stores the number of particles per
+ * @param gridCount pointer to array which stores the number of particles per
  * cell.
- * @param smoothingRadius area of influence parameeter.
+ * @param smoothingRadius area of influence parameter.
  * @param numCells1D number of cells in one dimension (assumes cube grid)
  * @param activeParticles number of particles to handle.
  ******************************************************************************/
@@ -194,6 +195,17 @@ void particleToCellKernel(Vec3 *predictedPositions, int* gridCount, float smooth
   }
 }
 
+/*******************************************************************************
+ * @brief Takes the output array and for each block i, adds value i from INCR
+ * array to every element.
+ *
+ * Author: TVycas
+ * Availability: github.com/TVycas/CUDA-Parallel-Prefix-Sum/
+ *
+ * @param output pointer to output array.
+ * @param n number of blocks per grid.
+ * @param INCR
+ ******************************************************************************/
 __global__ void uniformAddKernel(int *output, int n, int *INCR) {
   int idx = threadIdx.x + (BLOCK_SIZE << 1) * blockIdx.x;
 
@@ -207,6 +219,18 @@ __global__ void uniformAddKernel(int *output, int n, int *INCR) {
   }
 }
 
+/*******************************************************************************
+ * @brief Writes particle index to correct position in gridData array
+ *
+ * @param gridData pointer to array that stores particle indexes in flattened
+ * grid data structure.
+ * @param insertPos pointer to array that holds indices for the start of each
+ * cell in the flattened array gridData.
+ * @param predictedPositions pointer to array of predicted particle positions.
+ * @param smoothingRadius area of influence parameeter.
+ * @param numCells1D number of cells in one dimension (assumes cube grid)
+ * @param activeParticles number of particles to handle.
+ ******************************************************************************/
 __global__ void fillGridKernel(int *gridData, int* insertPos, Vec3 *predictedPositions,
                                float smoothingRadius, int numCells1D, int activeParticles) {
 
@@ -288,6 +312,8 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
   fillGridKernel<<<ceil(activeParticles / 384.0), 384>>>(
       cb.gridData_d, cb.insertPos_d, cb.predictedPositions_d, smoothingRadius,
       numCells1D, activeParticles);
+
+  /* ------ Cleanup ------ */
 
   cudaMemcpy(gridStart_h, cb.gridStart_d, (numCells + 1) * sizeof(int),
              cudaMemcpyDeviceToHost);

@@ -231,13 +231,16 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     auto t0 = clk::now();
     BuildGrid(smoothingRadius);
     auto t1 = clk::now();
-    std::cout << "Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
+    std::cout << "BUILDGRID Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
 #endif
   }
   {
     Profiler::Timer timer(BUILD_NEIGHBOURS, currentFrame, isBenchmarking);
     if (NeedsNeighbourRebuild()) {
+      // auto t0 = clk::now();
       BuildNeighbours(smoothingRadius);
+      // auto t1 = clk::now();
+      // std::cout << "BUILD NEIGHBOURS Execution time CPU: " << us(t0,t1) / 1000.0f << " ms" << std::endl;
       positionsAtLastBuild = predictedPositions;
     }
   }
