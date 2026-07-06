@@ -13,3 +13,7 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
 void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
                   int *gridData_h, float smoothingRadius, int numCells1D,
                   int activeParticles);
+
+void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
+                        int *neighbourCount_h, float smoothingRadius,
+                        int numCells1D, int activeParticles);

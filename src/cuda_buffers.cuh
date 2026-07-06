@@ -1,6 +1,7 @@
 #pragma once
 #include "linear_algebra.h"
 
+
 #define BLOCK_SIZE 256
 
 struct Particles;
@@ -21,6 +22,8 @@ public:
   int *gridStart_d;
   int *gridData_d;
   int *insertPos_d = NULL;
+  int *neighbourCount_d;
+  int *neighbourData_d;
 
   int *sumsL1_d = NULL;
   int *sumsL2_d = NULL;

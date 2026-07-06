@@ -32,6 +32,13 @@ CudaBuffers::CudaBuffers(Particles& particles) {
  err = cudaMalloc((void **)&gridData_d, activeSize);
  printError(err);
 
+ err = cudaMalloc((void **)&neighbourData_d, activeSize * MAX_NEIGHBOURS);
+ printError(err);
+
+  err = cudaMalloc((void **)&neighbourCount_d, activeSize);
+ printError(err);
+
+
  handleCellGridUpdate(particles.numCells1D);
 
  if (blocksPerGridL2 == 1) {
@@ -61,6 +68,10 @@ CudaBuffers::CudaBuffers(Particles& particles) {
              cudaMemcpyHostToDevice);
   cudaMemcpy(gridCount_d, particles.gridCount.data(), spaceGridSize,
              cudaMemcpyHostToDevice);
+  cudaMemcpy(neighbourData_d, particles.neighbourData.data(), activeSize,
+             cudaMemcpyHostToDevice);
+  cudaMemcpy(neighbourCount_d, particles.neighbourCount.data(), activeSize,
+             cudaMemcpyHostToDevice);
   
 }
 
@@ -80,6 +91,9 @@ CudaBuffers::~CudaBuffers() {
   printError(err);
   err = cudaFree(insertPos_d);
   printError(err);
+  err = cudaFree(neighbourData_d);
+  printError(err);
+  err = cudaFree(neighbourCount_d);
 
   if (blocksPerGridL2 == 1 || blocksPerGridL3 == 1) {
     err = cudaFree(sumsL1_d);

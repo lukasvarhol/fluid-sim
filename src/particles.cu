@@ -324,6 +324,73 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
+  // float miliseconds = 0.0f;
+  // cudaEventElapsedTime(&miliseconds, start, stop);
+  // printf("Execution time: %f miliseconds \n", miliseconds);
+  
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
+}
+
+__global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
+                                      Vec3 *predictedPositions, int *gridStart,
+                                      int *gridData, float smoothingRadius, int numCells1D,
+                                      int activeParticles) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (i < activeParticles) {
+    int count = 0;
+    int *currentNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+    Cell cell =
+        PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
+
+    for (int ox = -1; ox <= 1; ++ox)
+      for (int oy = -1; oy <= 1; ++oy)
+        for (int oz = -1; oz <= 1; ++oz) {
+          int cx = cell.x + ox;
+          int cy = cell.y + oy;
+          int cz = cell.z + oz;
+	  if (cx < 0 || cy < 0 || cz < 0 || cx >= numCells1D || cy >= numCells1D ||
+              cz >= numCells1D)
+            continue;
+
+          int idx = CellIndex(cx, cy, cz, numCells1D);
+          for (int k = gridStart[idx]; k < gridStart[idx + 1]; ++k) {
+            int j = gridData[k];
+            Vec3 diff = predictedPositions[j] - predictedPositions[i];
+            float d2 = diff.Dot(diff);
+            if (d2 <= smoothingRadius * smoothingRadius && count < MAX_NEIGHBOURS)
+              currentNeighbours[count++] = j;
+          }
+        }
+    neighbourCount[i] = count;
+  }
+}
+
+
+void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
+                        int *neighbourCount_h, float smoothingRadius,
+                        int numCells1D, int activeParticles) {
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  cudaEventRecord(start);
+
+  buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
+      cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
+      cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
+      activeParticles);
+  
+  cudaMemcpy(neighbourData_h, cb.neighbourData_d, activeParticles * MAX_NEIGHBOURS * sizeof(int),
+             cudaMemcpyDeviceToHost);
+  cudaMemcpy(neighbourCount_h, cb.neighbourCount_d,
+             activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
+
+  cudaEventRecord(stop);
+
+  cudaEventSynchronize(stop);
   float miliseconds = 0.0f;
   cudaEventElapsedTime(&miliseconds, start, stop);
   printf("Execution time: %f miliseconds \n", miliseconds);
