@@ -36,8 +36,13 @@ CudaBuffers::CudaBuffers(Particles& particles) {
  printError(err);
 
   err = cudaMalloc((void **)&neighbourCount_d, activeSize);
- printError(err);
+  printError(err);
 
+  err = cudaMalloc((void **)&positionsAtLastBuild_d,
+                   particles.activeParticles * sizeof(Vec3));
+  printError(err);
+
+  err  = cudaMalloc((void**)&buildNeighbours_d, sizeof(int));
 
  handleCellGridUpdate(particles.numCells1D);
 
@@ -94,6 +99,11 @@ CudaBuffers::~CudaBuffers() {
   err = cudaFree(neighbourData_d);
   printError(err);
   err = cudaFree(neighbourCount_d);
+  printError(err);
+  err = cudaFree(positionsAtLastBuild_d);
+  printError(err);
+  err = cudaFree(buildNeighbours_d);
+  printError(err);
 
   if (blocksPerGridL2 == 1 || blocksPerGridL3 == 1) {
     err = cudaFree(sumsL1_d);

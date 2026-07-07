@@ -236,21 +236,19 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   }
   {
     Profiler::Timer timer(BUILD_NEIGHBOURS, currentFrame, isBenchmarking);
-
+#ifdef USE_CUDA
+    CudaBuffers& cb = *cbp;
+    gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(), positionsAtLastBuild,
+		       smoothingRadius, skinRadius * skinRadius, numCells1D, activeParticles);
+#else
     if (NeedsNeighbourRebuild()) {
       // auto t0 = clk::now();
-#ifdef USE_CUDA
-      CudaBuffers& cb = *cbp;
-      gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(),
-                         smoothingRadius, numCells1D, activeParticles);
-      
-#else
       BuildNeighbours(smoothingRadius);
-#endif
       // auto t1 = clk::now();
       // std::cout << "BUILD NEIGHBOURS Execution time CPU: " << us(t0,t1) / 1000.0f << " ms" << std::endl;
       positionsAtLastBuild = predictedPositions;
     }
+#endif
   }
 
   // 3. PBF solver

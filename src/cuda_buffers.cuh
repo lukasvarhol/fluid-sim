@@ -24,6 +24,9 @@ public:
   int *insertPos_d = NULL;
   int *neighbourCount_d;
   int *neighbourData_d;
+  Vec3 *positionsAtLastBuild_d;
+
+  int* buildNeighbours_d;
 
   int *sumsL1_d = NULL;
   int *sumsL2_d = NULL;

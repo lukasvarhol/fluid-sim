@@ -15,5 +15,5 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
                   int activeParticles);
 
 void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
-                        int *neighbourCount_h, float smoothingRadius,
+                        int *neighbourCount_h, std::vector<Vec3> &positionsAtLastBuild_h, float smoothingRadius, float skinRadius2,
                         int numCells1D, int activeParticles);

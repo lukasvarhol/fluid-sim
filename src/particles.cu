@@ -367,17 +367,49 @@ __global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
   }
 }
 
+__global__ void needsNeighbourRebuildKernel(Vec3 *predictedPositions,
+                                            Vec3 *positionsAtLastBuild,
+                                            int *buildNeighbours,
+                                            float skinRadius2,
+                                            int activeParticles) {
+  
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (i < activeParticles) {
+    Vec3 diff = predictedPositions[i] - positionsAtLastBuild[i];
+    if (diff.Dot(diff) > skinRadius2)
+      atomicOr(buildNeighbours, 1);
+    return;
+  }
+}
+
 
 void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
-                        int *neighbourCount_h, float smoothingRadius,
-                        int numCells1D, int activeParticles) {
+                        int *neighbourCount_h,
+                        std::vector<Vec3> &positionsAtLastBuild_h,
+                        float smoothingRadius,
+                        float skinRadius2, int numCells1D,
+                        int activeParticles) {
 
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
 
   cudaEventRecord(start);
+  cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
 
+  if ((int)positionsAtLastBuild_h.size() < activeParticles)
+    cudaMemset(cb.buildNeighbours_d, 1, sizeof(int));
+  else {
+    cudaMemcpy(cb.positionsAtLastBuild_d, positionsAtLastBuild_h.data(),
+	       sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
+
+    needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(cb.predictedPositions_d, cb.positionsAtLastBuild_d, cb.buildNeighbours_d, skinRadius2, activeParticles);
+
+  }
+  int buildNeighbours_h;
+  cudaMemcpy(&buildNeighbours_h, cb.buildNeighbours_d, sizeof(int), cudaMemcpyDeviceToHost);
+  if(buildNeighbours_h == 1) {
   buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
       cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
       cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
@@ -387,6 +419,7 @@ void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
              cudaMemcpyDeviceToHost);
   cudaMemcpy(neighbourCount_h, cb.neighbourCount_d,
              activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
+  }
 
   cudaEventRecord(stop);
 
