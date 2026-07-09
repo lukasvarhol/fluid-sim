@@ -13,6 +13,8 @@ A real-time 3D fluid simulation built to practice C++, graphics programming, and
 
 The simulation was benchmarked using a custom profiler built into the binary, activated via the `--benchmark` flag. Each run measures per-phase wall-clock time across 2000 frames at a fixed timestep, logging raw per-frame timings to CSV for post-processing. The follwing results are true for running the benchmarks on an AMD Ryzen 9700X (8-core).
 
+*NOTE: GPU support is WIP*
+
 ### Benchmark Hardware
 | | |
 |---|---|
@@ -80,17 +82,29 @@ benchmarks/
 ---
 
 ## Building
-### Linux
-##### Depedencies
+### Linux (NixOS Recommended)
+##### Debian-based
+###### Depedencies
 ```bash
 sudo apt-get install build-essential libglfw3-dev libgl1-mesa-dev
 ```
 
+##### NixOs
+In the project root, just run:
+``` bash
+nix develop
+```
+That's it.
+
 ##### Configure and build
+Quick build and run:
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target fluid-sim
 ```
+
+###### Extra Compilation Flags
+If your device supports CUDA, but for some reason you would like to run the CPU-only version, you cand disable all CUDA execution with `-DUSE_CUDA=OFF`.
 
 ##### Run
 ```bash
