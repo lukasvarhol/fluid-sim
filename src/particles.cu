@@ -5,6 +5,8 @@
 #define CONFLICT_FREE_OFFSET(n)                                                \
   (((n) >> LOG_NUM_BANKS) + ((n) >> (LOG_NUM_BANKS << 1)))
 
+__constant__ float poly6_coeff_d;
+__constant__ float spiky_coeff_d;
 
 /*******************************************************************************
  * @brief Gravity and mouse interaction kernel.
@@ -26,8 +28,8 @@
  * @param n number of particles.
  ******************************************************************************/
 __global__
-void gravityPredictKernel(Vec3 *positions, Vec3 *velocities,
-			  Vec3 *predictedPositions,
+void gravityPredictKernel(Vec3 * __restrict__ positions, Vec3 * __restrict__ velocities,
+			  Vec3 * __restrict__ predictedPositions,
 			  float gravity,
 			  float mouseStrength, float mouseRadius,
 			  Vec3 rayOrigin, Vec3 rayDir, float dt,
@@ -35,24 +37,27 @@ void gravityPredictKernel(Vec3 *positions, Vec3 *velocities,
 
   int i = threadIdx.x + blockDim.x * blockIdx.x;
   if (i < n) {
-    velocities[i] += Vec3{0.0f, gravity, 0.0f} * dt;
+    Vec3 v = velocities[i];
+    Vec3 p = positions[i];
 
+    v +=  Vec3{0.0f, gravity, 0.0f} * dt;
+    
     if (mouseStrength != 0.0f && mouseRadius != 0.0f) {
-      Vec3  toParticle = positions[i] - rayOrigin;
+      Vec3  toParticle = p - rayOrigin;
       // project onto ray, then get perpendicular distance
       float along      = toParticle.Dot(rayDir);
       Vec3  closest    = rayOrigin + rayDir * along;
-      Vec3  perp       = positions[i] - closest;
+      Vec3  perp       = p - closest;
       float d2         = perp.Dot(perp);
 
       if (d2 < mouseRadius*mouseRadius && d2 > 1e-6f) {
-	float d       = std::sqrt(d2);
+	float d       = sqrtf(d2);
 	float falloff = 1.0f - (d / mouseRadius);
 	Vec3  dir     = perp * (1.0f / d);   // push/pull away from ray axis
-	velocities[i] += dir * (mouseStrength * falloff * dt);
+	v += dir * (mouseStrength * falloff * dt);
       }
     }
-    predictedPositions[i] = positions[i] + velocities[i] * dt;
+    predictedPositions[i] = p + v * dt;
   }
 }
 
@@ -73,7 +78,7 @@ void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
   cudaMemcpy(cb.positions_d, positions_h.data(), size, cudaMemcpyHostToDevice);
   cudaMemcpy(cb.velocities_d, velocities_h.data(), size, cudaMemcpyHostToDevice);
 
-  gravityPredictKernel<<<ceil(n / 384.0), 384>>>(
+  gravityPredictKernel<<<ceil(n / 128.0), 128>>>(
       cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
       mouseStrength, mouseRadius, rayOrigin, rayDir, dt, n);
 
@@ -231,7 +236,7 @@ __global__ void uniformAddKernel(int *output, int n, int *INCR) {
  * @param numCells1D number of cells in one dimension (assumes cube grid)
  * @param activeParticles number of particles to handle.
  ******************************************************************************/
-__global__ void fillGridKernel(int *gridData, int* insertPos, Vec3 *predictedPositions,
+__global__ void fillGridKernel(int * __restrict__ gridData, int* __restrict__ insertPos, Vec3 * __restrict__ predictedPositions,
                                float smoothingRadius, int numCells1D, int activeParticles) {
 
   int i = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -391,11 +396,6 @@ void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
                         float skinRadius2, int numCells1D,
                         int activeParticles) {
 
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-
-  cudaEventRecord(start);
   cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
 
   if ((int)positionsAtLastBuild_h.size() < activeParticles)
@@ -421,13 +421,86 @@ void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
              activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
   }
 
+}
+
+__global__ void calculateLambdasKernel(float *allLambdas,
+                                      Vec3 *predictedPositions,
+                                      int *neighbourData,
+				      int* neighbourCount,
+				      float relaxation,
+				      float restDensity,
+                                      float smoothingRadius,
+                                      int activeParticles) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (i < activeParticles) {
+    float h2 = smoothingRadius * smoothingRadius;
+
+    float density = poly6_coeff_d * powf(h2,3.0f);
+    Vec3 gradI = Vec3{0.0f, 0.0f, 0.0f};
+    float denominator = 0.0f;
+
+    const Vec3 &pI = predictedPositions[i];
+
+    int* currentNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+    for (int e{}; e < neighbourCount[i]; ++e) {
+      int n = currentNeighbours[e];
+      if (n == int(i))
+        continue;
+
+      Vec3 diff = pI - predictedPositions[n];
+      float d2 = diff.Dot(diff);
+      if (d2 >= h2 || d2 < 1e-12f)
+        continue;
+      float sq = h2 - d2;
+      density += poly6_coeff_d * powf(sq,3.0f);
+
+      float d = sqrtf(d2);
+      float s = spiky_coeff_d * (smoothingRadius - d) * (smoothingRadius - d);
+      Vec3 grad = diff * (s / (d * restDensity));
+      gradI += grad;
+      denominator += grad.Dot(grad);
+    }
+
+    denominator += gradI.Dot(gradI);
+    float Ci = (density / restDensity) - 1.0f;
+    allLambdas[i] = -Ci / (denominator + relaxation);
+  }
+}
+
+void gpuCalculateLambda(CudaBuffers &cb, float *allLambdas_h, float relaxation,
+                        float restDensity, float smoothingRadius,
+                        int activeParticles) {
+
+  
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  cudaEventRecord(start);
+
+  float poly6_coeff_h = 315.0f / (64.0f * PI * powf(smoothingRadius, 9));
+  cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float));
+
+  float spiky_coeff_h = -45.0f / (PI * powf(smoothingRadius, 6));
+  cudaMemcpyToSymbol(spiky_coeff_d, &spiky_coeff_h, sizeof(float));
+  
+  calculateLambdasKernel<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.allLambdas_d, cb.predictedPositions_d, cb.neighbourData_d,
+      cb.neighbourCount_d, relaxation, restDensity, smoothingRadius,
+      activeParticles);
+
+  cudaMemcpy(allLambdas_h, cb.allLambdas_d, sizeof(float) * activeParticles,
+             cudaMemcpyDeviceToHost);
+
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
   float miliseconds = 0.0f;
   cudaEventElapsedTime(&miliseconds, start, stop);
-  printf("Execution time: %f miliseconds \n", miliseconds);
+  printf("Execution time: %f milliseconds \n", miliseconds);
   
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
+  
 }

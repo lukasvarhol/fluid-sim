@@ -55,23 +55,24 @@ target_include_directories(fluid_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/imgui/backends
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
 include(CheckLanguage)
-check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
-  enable_language(CUDA)
-  find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    message(STATUS "CUDA found: enabling GPU acceleration")
-    target_link_libraries(fluid_core PUBLIC CUDA::cudart)
-    target_compile_definitions(fluid_core PUBLIC USE_CUDA)
-    target_compile_options(fluid_core PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>)
+if(USE_CUDA)
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    find_package(CUDAToolkit QUIET)
+    if(CUDAToolkit_FOUND)
+      message(STATUS "CUDA found: enabling GPU acceleration")
+      target_link_libraries(fluid_core PUBLIC CUDA::cudart)
+      target_compile_definitions(fluid_core PUBLIC USE_CUDA)
+      target_compile_options(fluid_core PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo;--expt-relaxed-constexpr>)
+    endif()
+  else()
+    message(STATUS "No CUDA support")
   endif()
 else()
-  message(STATUS "No CUDA support")
+  message(STATUS "CUDA disabled by user")
 endif()
-
-
 
 # TBB — used on platforms where std::execution::par_unseq is unavailable (e.g. Mac)
 find_package(TBB QUIET)

@@ -53,8 +53,9 @@ Particles::Particles(int n, float smoothingRadius)
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
-
+#ifdef USE_CUDA
   cbp = std::make_unique<CudaBuffers>(*this);
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -255,9 +256,17 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(SOLVER, currentFrame, isBenchmarking);
     for (int iter = 0; iter < numIterations; ++iter) {
+#ifdef USE_CUDA
+      CudaBuffers& cb = *cbp;
+      gpuCalculateLambda(cb, allLambdas.data(), relaxation, restDensity, smoothingRadius, activeParticles);
+#else
+      auto t0 = clk::now();
       ParallelFor(activeParticles, [&](int i) {
 	allLambdas[i] = CalculateLambda(i, smoothingRadius);
       });
+      auto t1 = clk::now();
+      std::cout << "CALCULATELAMBDAS Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
+#endif
 
       ParallelFor(activeParticles, [&](int i) {
 	Vec3        sum = {0.0f, 0.0f, 0.0f};
