@@ -258,7 +258,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     for (int iter = 0; iter < numIterations; ++iter) {
 #ifdef USE_CUDA
       CudaBuffers& cb = *cbp;
-      gpuCalculateLambda(cb, allLambdas.data(), relaxation, restDensity, smoothingRadius, activeParticles);
+      gpuCalculateLambda(cb, allLambdas.data(), relaxation, restDensity,
+                         smoothingRadius, activeParticles);
+
+      gpuCalculateDeltas(cb, deltas.data(), restDensity, wDq, scorrCoefficient, smoothingRadius, activeParticles);
 #else
       auto t0 = clk::now();
       ParallelFor(activeParticles, [&](int i) {
@@ -266,7 +269,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       });
       auto t1 = clk::now();
       std::cout << "CALCULATELAMBDAS Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
-#endif
+
 
       ParallelFor(activeParticles, [&](int i) {
 	Vec3        sum = {0.0f, 0.0f, 0.0f};
@@ -285,12 +288,13 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
 	  float d   = std::sqrt(d2);
 	  float s   = spiky * (smoothingRadius - d) * (smoothingRadius - d) / d;
-	  float corr       = Scorr(pi, predictedPositions[j], smoothingRadius);
+	  float corr       = Scorr(pi, predictedPositions[j], h2, poly6, wDq, scorrCoefficient);
 	  float lambdaSum  = allLambdas[i] + allLambdas[j] + corr;
 	  sum += diff * (s * lambdaSum);
 	}
 	deltas[i] = sum / restDensity;
       });
+#endif
 
       ParallelFor(activeParticles, [&](int i) {
 	predictedPositions[i] += deltas[i];
@@ -503,20 +507,6 @@ void Particles::Reset(float smoothingRadius)
 float Particles::CalculateDistance(Vec3 a, Vec3 b)
 {
   return (a - b).Magnitude();
-}
-
-float Particles::Scorr(Vec3 pi, Vec3 pj, float h)
-{
-  Vec3  diff = pi - pj;
-  float d2   = diff.Dot(diff);
-  if (d2 >= h2) return 0.0f;
-
-  float sq    = h2 - d2;
-  float W     = poly6 * sq * sq * sq;
-  float ratio = W / wDq;
-  float r2    = ratio  * ratio;
-  float r4    = r2 * r2;
-  return -scorrCoefficient * r4;
 }
 
 // ---------------------------------------------------------------------------

@@ -26,6 +26,8 @@ public:
   int *neighbourData_d;
   Vec3 *positionsAtLastBuild_d;
   float *allLambdas_d;
+  Vec3 *deltas_d;
+  
 
   int* buildNeighbours_d;
 

@@ -115,7 +115,6 @@ private:
   void  BuildNeighbours(float smoothingRadius);
   float CalculateLambda(size_t particleIdx, float smoothingRadius);
   float EstimateRestDensity(float smoothingRadius);
-  float Scorr(Vec3 pi, Vec3 pj, float h);
   bool  NeedsNeighbourRebuild();
   void  TickTrickler(float dt);
 };
@@ -137,4 +136,19 @@ DEVICE_CALLABLE
 inline int CellIndex(int cx, int cy, int cz, int numCells1D)
 {
   return cx * numCells1D * numCells1D + cy * numCells1D + cz;
+}
+
+DEVICE_CALLABLE
+inline float Scorr(Vec3 pi, Vec3 pj, float h2, float poly6, float wdq, float scorr)
+{
+  Vec3  diff = pi - pj;
+  float d2   = diff.Dot(diff);
+  if (d2 >= h2) return 0.0f;
+
+  float sq    = h2 - d2;
+  float W     = poly6 * sq * sq * sq;
+  float ratio = W / wdq;
+  float r2    = ratio  * ratio;
+  float r4    = r2 * r2;
+  return -scorr * r4;
 }

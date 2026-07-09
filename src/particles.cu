@@ -502,5 +502,52 @@ void gpuCalculateLambda(CudaBuffers &cb, float *allLambdas_h, float relaxation,
   
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
+}
+
+__global__ void calculateDeltasKernel(Vec3 *deltas, Vec3 *predictedPositions,
+                                      int *neighbourData, int *neighbourCount,
+                                      float *allLambdas, float restDensity,
+                                      float wdq, float scorr, float smoothingRadius,
+                                      int activeParticles) {
+  
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (i < activeParticles) {
+    float h2 = smoothingRadius * smoothingRadius;
+    
+    Vec3 sum = {0.0f, 0.0f, 0.0f};
+    const Vec3& pI = predictedPositions[i];
+
+    int* currentNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+    for (int n{}; n < neighbourCount[i]; ++n) {
+      int e = currentNeighbours[n];
+      if (e == i)
+        continue;
+
+      Vec3 diff = pI - predictedPositions[e];
+      float d2 = diff.Dot(diff);
+      if (d2 < 1e-12f || d2 >= h2)
+        continue;
+
+      float d = sqrtf(d2);
+      float s =
+          spiky_coeff_d * (smoothingRadius - d) * (smoothingRadius - d) / d;
+      float corr = Scorr(pI, predictedPositions[e], h2, poly6_coeff_d, wdq, scorr);
+      float lambdaSum = allLambdas[i] + allLambdas[e] + corr;
+      sum += diff * (s * lambdaSum);
+    }
+    deltas[i] = sum / restDensity;
+  }
+}
+
+void gpuCalculateDeltas(CudaBuffers &cb, Vec3 *deltas_h, float restDensity,
+                        float wdq, float scorr, float smoothingRadius, int activeParticles) {
+  calculateDeltasKernel<<<ceil(activeParticles / 128.0f), 128>>>(
+      cb.deltas_d, cb.predictedPositions_d, cb.neighbourData_d,
+      cb.neighbourCount_d, cb.allLambdas_d, restDensity, wdq, scorr, smoothingRadius,
+      activeParticles);
+
+  cudaMemcpy(deltas_h, cb.deltas_d, sizeof(Vec3) * activeParticles,
+             cudaMemcpyDeviceToHost);
   
 }
