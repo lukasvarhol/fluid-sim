@@ -193,7 +193,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     oldPositions = positions;
 #ifdef USE_CUDA
     CudaBuffers& cb = *cbp;
-    gpuGravityPredict(cb, positions, velocities, predictedPositions, gravity,
+    gpuGravityPredict(cb, positions.data(), velocities.data(), predictedPositions.data(), gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
                    numParticles); 
 #else
@@ -258,10 +258,13 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     for (int iter = 0; iter < numIterations; ++iter) {
 #ifdef USE_CUDA
       CudaBuffers& cb = *cbp;
-      gpuCalculateLambda(cb, allLambdas.data(), relaxation, restDensity,
+      gpuCalculateLambda(cb, relaxation, restDensity,
                          smoothingRadius, activeParticles);
 
-      gpuCalculateDeltas(cb, deltas.data(), restDensity, wDq, scorrCoefficient, smoothingRadius, activeParticles);
+      gpuCalculateDeltas(cb, restDensity, wDq, scorrCoefficient,
+                         smoothingRadius, activeParticles);
+
+      gpuClampToBoundaries(cb, predictedPositions.data(), radiusPx, g_fb_w, g_fb_h, activeParticles);
 #else
       auto t0 = clk::now();
       ParallelFor(activeParticles, [&](int i) {
@@ -292,14 +295,14 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 	  float lambdaSum  = allLambdas[i] + allLambdas[j] + corr;
 	  sum += diff * (s * lambdaSum);
 	}
-	deltas[i] = sum / restDensity;
+        deltas[i] = sum / restDensity;
+	predictedPositions[i] += deltas[i];
       });
-#endif
 
       ParallelFor(activeParticles, [&](int i) {
-	predictedPositions[i] += deltas[i];
         ClampToBoundaries(&predictedPositions[i], radiusPx, g_fb_w, g_fb_h);
       });
+#endif
 
       if (!useTriangleCollisions) {
         Profiler::Timer timer(COLLISION_SDF, currentFrame, isBenchmarking);

@@ -4,11 +4,9 @@
 #include "particles.h"
 #include <vector>
 
-void gpuGravityPredict(CudaBuffers& cb, std::vector<Vec3> &positions_h,
-                    std::vector<Vec3> &velocities_h,
-                    std::vector<Vec3> &predictedPositions_h, float gravity,
-                    float mouseStrength, float mouseRadius, Vec3 rayOrigin,
-                    Vec3 rayDir, float dt, int n);
+void gpuGravityPredict(CudaBuffers& cb, Vec3* positions, Vec3* velocities, Vec3* predictedPositions, float gravity,
+		       float mouseStrength, float mouseRadius, Vec3 rayOrigin,
+		       Vec3 rayDir, float dt, int n);
 
 void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
                   int *gridData_h, float smoothingRadius, int numCells1D,
@@ -18,10 +16,12 @@ void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
                         int *neighbourCount_h, std::vector<Vec3> &positionsAtLastBuild_h, float smoothingRadius, float skinRadius2,
                         int numCells1D, int activeParticles);
 
-void gpuCalculateLambda(CudaBuffers &cb, float *allLambdas_h, float relaxation,
+void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
                         float restDensity, float smoothingRadius,
                         int activeParticles);
 
-void gpuCalculateDeltas(CudaBuffers &cb, Vec3 *deltas_h, float restDensity,
+void gpuCalculateDeltas(CudaBuffers &cb, float restDensity,
                         float wdq, float scorr, float smoothingRadius, int activeParticles);
 
+void gpuClampToBoundaries(CudaBuffers &cb, Vec3* predictedPositions_h, float radiusPx,
+                          int g_fb_w, int g_fb_h, int activeParticles);
