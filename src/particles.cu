@@ -574,3 +574,20 @@ void gpuClampToBoundaries(CudaBuffers& cb, Vec3* predictedPositions_h, float rad
              cudaMemcpyDeviceToHost);
 
 }
+
+
+__global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
+                                         const SDFCollider *collider) {
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (i < activeParticles) {
+    Vec3 d = positions[i] - collider.worldPositions;
+    Vec3 localPosition = {d.Dot(collider.rotationAxes[0]),
+                          d.Dot(collider.rotationAxes[1]),
+                          d.Dot(collider.rotationAxes[2])};
+
+    float pushDistance = 
+  
+}
+
+void gpuProjectParticleSDF

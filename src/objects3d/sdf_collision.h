@@ -14,7 +14,7 @@ struct SDFCollider {
 };
   
 void BuildSDFColliders(const std::vector<RGObject>& obbjects, std::vector<SDFCollider>& colliders);
-float sdfDispatch(RGObjectType type, Vec3 localPosition);
+
 Vec3 sdfGradient(RGObjectType type, Vec3 localPosition);
 void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider& collider);
 std::vector<Vec3> SampleSDFInside(const SDFCollider &collider, float gridStep);
@@ -28,4 +28,19 @@ struct TriCollider {
 
 void ProjectParticleTri(const Vec3 &p, const Vec3 &velocity,
                         const TriCollider &triCollider, Vec3 &closestPointOut);
-Vec3 ClosestPtPointTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c);
+Vec3 ClosestPtPointTriangle(const Vec3 &p, const Vec3 &a, const Vec3 &b,
+                            const Vec3 &c);
+
+DEVICE_CALLABLE
+inline float sdfDispatch(RGObjectType type, Vec3 localPosition) {
+    switch (type) {
+  case RGObjectType::S_CHANNEL:
+    return sdfSChannel(localPosition);
+  case RGObjectType::L_CHANNEL:
+    return sdfLChannel(localPosition);
+  case RGObjectType::RAMP:
+    return sdfBRamp(localPosition);
+  default:
+    return 1e9f; // too far away
+  }
+}

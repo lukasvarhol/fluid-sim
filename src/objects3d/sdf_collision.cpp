@@ -123,17 +123,7 @@ float sdfBRamp(Vec3 p) {
 }
 
 float sdfDispatch(RGObjectType type, Vec3 localPosition) {
-  switch (type) {
-  case RGObjectType::S_CHANNEL:
-    return sdfSChannel(localPosition);
-  case RGObjectType::L_CHANNEL:
-    return sdfLChannel(localPosition);
-  case RGObjectType::RAMP:
-    return sdfBRamp(localPosition);
-  default:
-    return 1e9f; // too far away
-  }
-}
+
 
 Vec3 sdfGradient(RGObjectType type, Vec3 localPosition) {
   const float epsilon = 0.001f;

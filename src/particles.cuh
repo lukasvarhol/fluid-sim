@@ -25,3 +25,5 @@ void gpuCalculateDeltas(CudaBuffers &cb, float restDensity,
 
 void gpuClampToBoundaries(CudaBuffers &cb, Vec3* predictedPositions_h, float radiusPx,
                           int g_fb_w, int g_fb_h, int activeParticles);
+
+void gpuProjectParticleSDF
