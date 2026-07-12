@@ -1,5 +1,6 @@
 #pragma once
 #include "objects3d/editor_state.h"
+#include "sdf_collision.h"
 
 float OrientationYaw(Orientation o);
 
@@ -10,7 +11,7 @@ void RegenerateObjectsFromGrid(const GridState& grid, EditorState& state,
 
 // Preview workflow
 void StartPreview(GridState& grid, EditorState& state);   // snapshot current cell, exclude from solid objects
-void RegeneratePreviewObjects(EditorState& state);         // rebuild previewObjects from previewCell
+void RegeneratePreviewObjects(EditorState& state, size_t cellIdx);         // rebuild previewObjects from previewCell
 void CommitPreview(GridState& grid, EditorState& state);   // write previewCell to grid, rebuild objects
 void CancelPreview(GridState& grid, EditorState& state);   // discard preview, rebuild objects
 

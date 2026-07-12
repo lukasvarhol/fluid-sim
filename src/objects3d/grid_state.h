@@ -1,5 +1,5 @@
 #pragma once
-#include "linear_algebra.h"
+#include "../linear_algebra.h"
 #include <array>
 
 constexpr int   GRID_X    = 5;

@@ -179,7 +179,7 @@ float Particles::CalculateLambda(size_t i, float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 		       const int g_fb_w, const int g_fb_h,
-		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<SDFCollider>& colliders)
+		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders)
 {
   if (tricklerMode)
     TickTrickler(dt);
@@ -307,8 +307,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       if (!useTriangleCollisions) {
         Profiler::Timer timer(COLLISION_SDF, currentFrame, isBenchmarking);
         ParallelFor(activeParticles, [&](int i) {
-	  for (const SDFCollider& collider : colliders)
-            ProjectParticleSDF(predictedPositions[i], velocities[i], collider);
+	  for (int j{}; j < MAX_OBJECTS; ++j)
+            ProjectParticleSDF(predictedPositions[i], velocities[i], colliders[j]);
 	});
       } else {
         Profiler::Timer timer(COLLISION_TRI_BRUTE, currentFrame,

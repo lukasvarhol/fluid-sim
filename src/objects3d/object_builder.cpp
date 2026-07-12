@@ -15,9 +15,9 @@ float OrientationYaw(Orientation o)
   return 0.0f;
 }
 
-static void AppendCellObjects(std::vector<RGObject>& objects,
+static void addCellObject(RGObject* objects,
                               const CellFeature& cf,
-                              Vec3 c, float yaw)
+			  Vec3 c, float yaw, size_t idx)
 {
   RGObjectType type;
   switch (cf.feature) {
@@ -36,22 +36,22 @@ static void AppendCellObjects(std::vector<RGObject>& objects,
   obj.position = c;
   obj.rotation = {0.0f, yaw, 0.0f};
   obj.halfExtents = {CELL_SIZE * 0.5f, CELL_SIZE * 0.5f, CELL_SIZE * 0.5f};
-  objects.push_back(obj);
+  objects[idx] = obj;
 }
 
 void RegenerateObjectsFromGrid(const GridState& grid, EditorState& state,
                                int skipX, int skipY, int skipZ)
 {
-  state.objects.clear();
   for (int z = 0; z < GRID_Z; ++z)
     for (int y = 0; y < GRID_Y; ++y)
       for (int x = 0; x < GRID_X; ++x) {
         if (skipX >= 0 && x == skipX && y == skipY && z == skipZ) continue;
-        const CellFeature& cf = grid.GetCell(x, y, z);
+        const CellFeature &cf = grid.GetCell(x, y, z);
+	size_t cellIdx = grid.CellIndex(x, y ,z);
         if (cf.feature == Feature::EMPTY) continue;
         Vec3  c   = grid.CellCenterWorld(x, y, z);
         float yaw = OrientationYaw(cf.facing);
-        AppendCellObjects(state.objects, cf, c, yaw);
+        addCellObject(state.objects, cf, c, yaw, cellIdx);
       }
 }
 
@@ -65,30 +65,34 @@ void StartPreview(GridState& grid, EditorState& state)
   // Exclude the preview cell from solid collision objects
   RegenerateObjectsFromGrid(grid, state, state.previewX, state.previewY, state.previewZ);
   // Build initial ghost from current cell content (may be empty)
-  RegeneratePreviewObjects(state);
+  RegeneratePreviewObjects(state, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
 }
 
-void RegeneratePreviewObjects(EditorState& state)
+void RegeneratePreviewObjects(EditorState& state, size_t cellIdx)
 {
-  state.previewObjects.clear();
+  //state.previewObjects.clear();
   if (!state.previewActive) return;
   Vec3  c   = state.grid.CellCenterWorld(state.previewX, state.previewY, state.previewZ);
   float yaw = OrientationYaw(state.previewCell.facing);
-  AppendCellObjects(state.previewObjects, state.previewCell, c, yaw);
+  addCellObject(state.previewObjects, state.previewCell, c, yaw, cellIdx);
 }
 
-void CommitPreview(GridState& grid, EditorState& state)
+void CommitPreview(GridState& grid, EditorState& state, SDFCollider* colliders)
 {
-  grid.GetCell(state.previewX, state.previewY, state.previewZ) = state.previewCell;
+  grid.GetCell(state.previewX, state.previewY, state.previewZ) =
+      state.previewCell;
+  size_t cellIdx = grid.CellIndex(state.previewX, state.previewY, state.previewZ); 
   state.previewActive = false;
-  state.previewObjects.clear();
-  RegenerateObjectsFromGrid(grid, state); // no skip — include the now-committed cell
+  //state.previewObjects.clear();
+  RegenerateObjectsFromGrid(grid,
+                            state); // no skip — include the now-committed cell
+  addCollider(colliders, state.objects, cellIdx);
 }
 
 void CancelPreview(GridState& grid, EditorState& state)
 {
   state.previewActive = false;
-  state.previewObjects.clear();
+  //state.previewObjects.clear();
   RegenerateObjectsFromGrid(grid, state); // restore old cell's geometry
 }
 
@@ -98,9 +102,9 @@ void ClearScene(EditorState& state)
   state.grid.selX = 2;
   state.grid.selY = 2;
   state.grid.selZ = 2;
-  state.objects.clear();
+  //state.objects.clear();
   state.previewActive = false;
-  state.previewObjects.clear();
+  //state.previewObjects.clear();
 }
 
 void LoadDefaultScene(EditorState& state)

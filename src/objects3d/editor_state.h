@@ -1,8 +1,9 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "linear_algebra.h"
 #include "grid_state.h"
+
+#define MAX_OBJECTS 125 // 5 x 5 x 5
 
 enum class RGPortKind { Input, Output, Bidirectional };
 
@@ -28,7 +29,6 @@ struct RGObject {
     Vec3         halfExtents   = {0.1f, 0.1f, 0.1f};
     float        radius        = 0.1f;
     float        wallThickness = 0.025f;
-
     bool         active        = true;
 
 // Per-object color override for cell-generated objects (x<0 = use type default)
@@ -36,8 +36,8 @@ struct RGObject {
 };
 
 struct EditorState {
-    std::vector<RGObject> objects;        // rebuilt from committed grid
-    std::vector<RGObject> previewObjects; // ghost render only, no collision
+    RGObject objects[MAX_OBJECTS];        // rebuilt from committed grid
+    RGObject previewObjects[MAX_OBJECTS]; // ghost render only, no collision
     GridState             grid;
 
     // Preview state

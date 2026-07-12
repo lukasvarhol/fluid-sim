@@ -1,5 +1,6 @@
 #pragma once
 #include "linear_algebra.h"
+#include "objects3d/sdf_collision.h"
 #include "cuda_buffers.cuh"
 #include "particles.h"
 #include <vector>
@@ -26,4 +27,4 @@ void gpuCalculateDeltas(CudaBuffers &cb, float restDensity,
 void gpuClampToBoundaries(CudaBuffers &cb, Vec3* predictedPositions_h, float radiusPx,
                           int g_fb_w, int g_fb_h, int activeParticles);
 
-void gpuProjectParticleSDF
+//void gpuProjectParticleSDF

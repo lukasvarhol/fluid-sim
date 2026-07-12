@@ -34,8 +34,8 @@ void AppendBox(std::vector<float>& buf,
 // Render all active objects, optional ghost preview, optional cell overlays.
 // previewObjs: null = no ghost pass; grid: null = no cell overlays.
 void RenderObjects(ObjectRenderer& r,
-                   const std::vector<RGObject>& objects,
-                   const std::vector<RGObject>* previewObjs,
+                   RGObject* objects,
+                   RGObject* previewObjs,
                    const GridState* grid,
                    bool showSelectedCell,
                    bool showOccupiedOutlines,

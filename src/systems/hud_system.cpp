@@ -114,7 +114,7 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
       if (ImGui::Button("Clear"))
 	ClearScene(editorState);
       ImGui::Checkbox("Reset Scene on R", &editorState.resetObjectsOnR);
-      ImGui::Text("Collision objects: %d", (int)editorState.objects.size());
+      //ImGui::Text("Collision objects: %d", (int)editorState.objects.size()); //todo: fix this
     }
 
     // -----------------------------------------------------------------------

@@ -94,7 +94,7 @@ struct Particles
   Particles(int numParticles, float smoothingRadius);
   void Update(float dt, float smoothingRadius, float radiusPx,
                 const int g_fb_w,
-	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, const std::vector<SDFCollider>& colliders);
+	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders);
   void Reset(float smoothingRadius);
   void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz);
   void ResetTrickler();
@@ -125,9 +125,9 @@ inline Cell PositionToCoord(Vec3 position, float smoothingRadius,
   int cx = (int)((position.x + 1.0f) / smoothingRadius);
   int cy = (int)((position.y + 1.0f) / smoothingRadius);
   int cz = (int)((position.z + 1.0f) / smoothingRadius);
-  cx = std::max(0, std::min(numCells1D - 1, cx));
-  cy = std::max(0, std::min(numCells1D - 1, cy));
-  cz = std::max(0, std::min(numCells1D - 1, cz));
+  cx = max(0, min(numCells1D - 1, cx));
+  cy = max(0, min(numCells1D - 1, cy));
+  cz = max(0, min(numCells1D - 1, cz));
   return Cell{cx, cy, cz};
 }
 

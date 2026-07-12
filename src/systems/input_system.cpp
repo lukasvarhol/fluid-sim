@@ -67,7 +67,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (!es->previewActive) StartPreview(grid, *es);
                 int n = (((int)es->previewCell.feature + delta) % FEATURE_COUNT + FEATURE_COUNT) % FEATURE_COUNT;
                 es->previewCell.feature = static_cast<Feature>(n);
-                RegeneratePreviewObjects(*es);
+                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Preview: ") + kFeatureNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -79,7 +79,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (!es->previewActive) StartPreview(grid, *es);
                 int n = ((int)es->previewCell.facing + 1 + 4) % 4;
                 es->previewCell.facing = static_cast<Orientation>(n);
-                RegeneratePreviewObjects(*es);
+                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Facing: ") + kOrientNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -91,7 +91,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (!es->previewActive) StartPreview(grid, *es);
                 int n = ((int)es->previewCell.facing - 1 + 4) % 4;
                 es->previewCell.facing = static_cast<Orientation>(n);
-                RegeneratePreviewObjects(*es);
+                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Facing: ") + kOrientNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -104,7 +104,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (!es->previewActive) StartPreview(grid, *es);
                 int v = std::max(0, std::min(4, es->previewCell.variant + delta));
                 es->previewCell.variant = v;
-                RegeneratePreviewObjects(*es);
+                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = "Preview: variant " + std::to_string(v)
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
