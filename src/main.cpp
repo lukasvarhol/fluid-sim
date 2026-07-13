@@ -4,6 +4,10 @@
 #include <limits>
 #include "tiny_obj_loader.h"
 
+#ifdef USE_CUDA
+#include "cuda_buffers.cuh"
+#endif
+
 bool isBenchmarking = false;
 bool runParallel = true;
 int currentFrame = 0;
@@ -108,6 +112,7 @@ int main(int argc, char *argv[]) {
 
       SDFCollider colliders[MAX_OBJECTS];
       GridState grid;
+      AppState appState;
 
       std::vector<Vec3> triangles = LoadOBJTriangles("meshes/SChannel.obj");
       
@@ -143,7 +148,7 @@ int main(int argc, char *argv[]) {
       	    
       for (int i = 0; i < profilerFrames; ++i) {
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
-                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, colliders);
+                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f,colliders, &appState);
 	currentFrame++;
       }
 
@@ -225,6 +230,12 @@ int main(int argc, char *argv[]) {
 
   Particles particles(numParticles, smoothingRadius);
 
+#ifdef USE_CUDA
+  CudaBuffers cudaBuffers(particles);
+  appState.cudaBuffers = &cudaBuffers;
+#endif
+
+
   ObjectRenderer objectRenderer;
   SetupObjectRenderer(objectRenderer);
 
@@ -285,7 +296,7 @@ int main(int argc, char *argv[]) {
     lastTime = now;
     dtMeasured = std::min(dtMeasured, 1.0f / 60.0f);
 
-    DrawHUD(particles, simulationControl, editorState, dtMeasured);
+    DrawHUD(particles, simulationControl, editorState, &appState, dtMeasured);
 
     radiusPx = radiusLogical * xScale;
 
@@ -296,7 +307,7 @@ int main(int argc, char *argv[]) {
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
     if (wasReset) {
       if (editorState.resetObjectsOnR)
-        loadDefaultScene(editorState);
+        loadDefaultScene(editorState, &appState);
     }
     // std::vector<SDFCollider> testColliders;
     // BuildSDFColliders(editorState.objects, testColliders);
@@ -312,7 +323,7 @@ int main(int argc, char *argv[]) {
       //BuildSDFColliders(editorState.objects, colliders);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
-                       mouseRay.direction, mouseRay.strength, editorState.colliders);
+                       mouseRay.direction, mouseRay.strength, editorState.colliders, &appState);
 
     }
 

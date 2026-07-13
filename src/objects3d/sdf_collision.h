@@ -1,12 +1,20 @@
 #pragma once
 #include "editor_state.h"
+#include "../app/app_state.h"
 #include "../linear_algebra.h"
 #include "particle_config.h"
 #include <array>
 #include <cmath>
 #include <numeric>
 
-void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx);
+#ifdef USE_CUDA
+#include "../cuda_buffers.cuh"
+#endif
+
+void addCollider(SDFCollider *colliders, RGObject *objects, size_t idx,
+                 AppState *as);
+
+void deleteCollider(SDFCollider* colliders, size_t idx, AppState* as);
 
 void BuildSDFColliders(const std::vector<RGObject>& objects, std::vector<SDFCollider>& colliders);
 

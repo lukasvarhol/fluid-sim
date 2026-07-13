@@ -53,9 +53,6 @@ Particles::Particles(int n, float smoothingRadius)
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
-#ifdef USE_CUDA
-  cbp = std::make_unique<CudaBuffers>(*this);
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +176,7 @@ float Particles::CalculateLambda(size_t i, float smoothingRadius)
 // ---------------------------------------------------------------------------
 void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 		       const int g_fb_w, const int g_fb_h,
-		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders)
+		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders, AppState* as)
 {
   if (tricklerMode)
     TickTrickler(dt);
@@ -192,7 +189,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(GRAVITY_PREDICT, currentFrame, isBenchmarking);
     oldPositions = positions;
 #ifdef USE_CUDA
-    CudaBuffers& cb = *cbp;
+    CudaBuffers& cb = *as->cudaBuffers;
     gpuGravityPredict(cb, positions.data(), velocities.data(), predictedPositions.data(), gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
                    numParticles); 
@@ -225,7 +222,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(BUILD_GRID, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
-    CudaBuffers& cb = *cbp;
+    CudaBuffers& cb = *as->cudaBuffers;
     gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
                  smoothingRadius, numCells1D, activeParticles);
 #else
@@ -238,7 +235,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   {
     Profiler::Timer timer(BUILD_NEIGHBOURS, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
-    CudaBuffers& cb = *cbp;
+    CudaBuffers& cb = *as->cudaBuffers;
     gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(), positionsAtLastBuild,
 		       smoothingRadius, skinRadius * skinRadius, numCells1D, activeParticles);
 #else
@@ -257,7 +254,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(SOLVER, currentFrame, isBenchmarking);
     for (int iter = 0; iter < numIterations; ++iter) {
 #ifdef USE_CUDA
-      CudaBuffers& cb = *cbp;
+      CudaBuffers& cb = *as->cudaBuffers;
       gpuCalculateLambda(cb, relaxation, restDensity,
                          smoothingRadius, activeParticles);
 
@@ -561,7 +558,7 @@ bool Particles::NeedsNeighbourRebuild()
 
 // ---------------------------------------------------------------------------
 void Particles::ResizeParticles(int newParticles, float smoothingRadius,
-				float spacing, float ox, float oy, float oz)
+				float spacing, float ox, float oy, float oz, AppState* as)
 {
   initOffsetX = ox;
   initOffsetY = oy;
@@ -597,7 +594,7 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   restDensity = EstimateRestDensity(smoothingRadius);
 
 #ifdef USE_CUDA
-  CudaBuffers& cb = *cbp;
+  CudaBuffers& cb = *as->cudaBuffers;
   cb.handleCellGridUpdate(numCells1D);
 #endif
   

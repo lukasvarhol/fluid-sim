@@ -1,7 +1,8 @@
 #include "sdf_collision.h"
 #include <cstring>
 
-void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx) {
+
+void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx,  AppState* as) {
   if (idx > MAX_OBJECTS-1)
     return;
   RGObject rgObject = objects[idx];
@@ -17,6 +18,22 @@ void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx) {
   collider.restitution = energyRetention;
 
   colliders[idx] = collider;
+#ifdef USE_CUDA
+  CudaBuffers& cb = *as->cudaBuffers;
+  cudaMemcpy(cb.colliders_d, colliders, sizeof(SDFCollider) * MAX_OBJECTS,
+             cudaMemcpyHostToDevice);
+  //printf("Memory updated too!\n");
+#endif
+}
+
+void deleteCollider(SDFCollider* colliders, size_t idx, AppState *as) {
+  colliders[idx] = SDFCollider{};
+#ifdef USE_CUDA
+  CudaBuffers& cb = *as->cudaBuffers;
+  cudaMemcpy(cb.colliders_d, colliders, sizeof(SDFCollider) * MAX_OBJECTS,
+             cudaMemcpyHostToDevice);
+  //printf("Memory updated!\n");
+#endif
 }
 
 void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider &collider) {

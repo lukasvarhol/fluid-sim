@@ -116,7 +116,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (es->previewActive) {
                     int px = es->previewX, py = es->previewY, pz = es->previewZ;
                     int fn = (int)es->previewCell.feature;
-                    commitPreview(grid, *es);
+                    commitPreview(grid, *es, appState);
                     es->statusMsg   = std::string("Placed ") + kFeatureNames[fn]
                                       + " at (" + std::to_string(px) + ","
                                       + std::to_string(py) + "," + std::to_string(pz) + ").";
@@ -127,8 +127,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             // Delete / Backspace: cancel any preview, then clear the cell
             if (key == GLFW_KEY_DELETE || key == GLFW_KEY_BACKSPACE) {
-                if (es->previewActive) cancelPreview(grid, *es);
-                clearCell(grid, *es);
+	      if (es->previewActive) cancelPreview(grid, *es);
+	      clearCell(grid, *es, appState);
                 es->statusMsg   = "Cell cleared.";
                 es->statusTimer = 2.0f;
                 return;

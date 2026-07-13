@@ -77,11 +77,6 @@ struct Particles
   std::vector<int> gridStart;
   std::vector<int> gridCount;
 
-
-#ifdef USE_CUDA
-  std::unique_ptr<CudaBuffers> cbp;
-#endif
-
   std::vector<int> neighbourData;   // size nParticles * MAX_NEIGHBOURS
   std::vector<int> neighbourCount;  // size nParticles 
   std::vector<int> indices;
@@ -94,9 +89,9 @@ struct Particles
   Particles(int numParticles, float smoothingRadius);
   void Update(float dt, float smoothingRadius, float radiusPx,
                 const int g_fb_w,
-	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders);
+	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders, AppState* as);
   void Reset(float smoothingRadius);
-  void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz);
+  void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz, AppState* as);
   void ResetTrickler();
 
   

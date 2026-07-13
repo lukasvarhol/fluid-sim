@@ -1,6 +1,7 @@
 #pragma once
 #include "linear_algebra.h"
-
+#include "objects3d/editor_state.h"
+#include <cuda_runtime.h>
 
 #define BLOCK_SIZE 256
 
@@ -14,7 +15,7 @@ public:
   ~CudaBuffers();
   void printError(const cudaError_t err) const;
   void handleCellGridUpdate(int numCells1D);
-
+  
   Vec3 *positions_d;
   Vec3 *velocities_d;
   Vec3 *predictedPositions_d;
@@ -27,6 +28,7 @@ public:
   Vec3 *positionsAtLastBuild_d;
   float *allLambdas_d;
   Vec3 *deltas_d;
+  SDFCollider *colliders_d;
   
 
   int* buildNeighbours_d;

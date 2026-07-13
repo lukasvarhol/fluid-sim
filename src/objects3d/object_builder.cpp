@@ -80,7 +80,7 @@ void addPreviewObject(EditorState& state, size_t cellIdx)
 }
 
 
-void commitPreview(GridState& grid, EditorState& state)
+void commitPreview(GridState& grid, EditorState& state, AppState* as)
 {
   grid.GetCell(state.previewX, state.previewY, state.previewZ) =
       state.previewCell;
@@ -88,7 +88,7 @@ void commitPreview(GridState& grid, EditorState& state)
   state.previewActive = false;
   state.previewObjects[cellIdx] = RGObject{};
   regenerateObjectFromGrid(grid,state); 
-  addCollider(state.colliders, state.objects, cellIdx);
+  addCollider(state.colliders, state.objects, cellIdx, as);
 }
 
 void cancelPreview(GridState& grid, EditorState& state)
@@ -98,15 +98,15 @@ void cancelPreview(GridState& grid, EditorState& state)
   regenerateObjectFromGrid(grid, state); // restore old cell's geometry
 }
 
-void clearScene(EditorState& state)
+void clearScene(EditorState& state, AppState* as)
 {
-  for (int j{}; j < MAX_OBJECTS; ++j) {
+  for (size_t j{}; j < MAX_OBJECTS; ++j) {
     state.objects[j] = RGObject{};
-    state.colliders[j] = SDFCollider{};
+    deleteCollider(state.colliders, j, as);
   }
 }
 
-void buildFromList(std::vector<ScenePlacement> &placeList, GridState& grid, EditorState &state) {
+void buildFromList(std::vector<ScenePlacement> &placeList, GridState& grid, EditorState &state, AppState* as) {
   for (const auto &e : placeList) {
     const CellFeature &cf = e.feature;
     size_t cellIdx = grid.CellIndex(e.x, e.y, e.z);
@@ -114,13 +114,13 @@ void buildFromList(std::vector<ScenePlacement> &placeList, GridState& grid, Edit
     Vec3  c   = grid.CellCenterWorld(e.x, e.y, e.z);
     float yaw = orientationYaw(cf.facing);
     addCellObject(state.objects, cf, c, yaw, cellIdx);
-    addCollider(state.colliders, state.objects, cellIdx);
+    addCollider(state.colliders, state.objects, cellIdx, as);
   }
 }
 
-void loadDefaultScene(EditorState& state)
+void loadDefaultScene(EditorState& state, AppState* as)
 {
-  clearScene(state);
+  clearScene(state, as);
 
   tricklerMode      = true;
   tricklerOriginX   = -0.8f;
@@ -154,7 +154,7 @@ void loadDefaultScene(EditorState& state)
   placeList.push_back({4, 1, 1, {Feature::RAMP, Orientation::North, 0}});
   placeList.push_back({4, 1, 0, {Feature::L_CHANNEL, Orientation::North, 0}});
 
-  buildFromList(placeList, state.grid,state);
+  buildFromList(placeList, state.grid,state, as);
 }
 
 // ---------------------------------------------------------------------------
@@ -191,8 +191,8 @@ void cycleCellVariant(GridState& grid, EditorState& state, int delta)
   regenerateObjectFromGrid(grid, state);
 }
 
-void clearCell(GridState &grid, EditorState &state) {
+void clearCell(GridState &grid, EditorState &state, AppState* as) {
   size_t cellIdx = grid.CellIndex(grid.selX, grid.selY, grid.selZ);
   state.objects[cellIdx] = RGObject{};
-  state.colliders[cellIdx] = SDFCollider{};
+  deleteCollider(state.colliders, cellIdx, as);
 }

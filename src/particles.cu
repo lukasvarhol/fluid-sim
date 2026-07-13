@@ -493,9 +493,9 @@ void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
-  float miliseconds = 0.0f;
-  cudaEventElapsedTime(&miliseconds, start, stop);
-  printf("Execution time: %f milliseconds \n", miliseconds);
+  // float miliseconds = 0.0f;
+  // cudaEventElapsedTime(&miliseconds, start, stop);
+  // printf("Execution time: %f milliseconds \n", miliseconds);
   
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
