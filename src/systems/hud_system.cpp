@@ -2,7 +2,7 @@
 #include "objects3d/object_builder.h"
 
 void DrawHUD(Particles& particles, SimulationControl& simulationControl,
-             EditorState& editorState, float dt) {
+             EditorState& editorState, AppState* as, float dt) {
 
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -38,7 +38,7 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
       ImGui::Checkbox("Enable Objects Mode", &editorState.objectsModeEnabled);
       ImGui::TextDisabled("Object editing keys work only when Objects Mode is enabled.");
       if (prevEnabled && !editorState.objectsModeEnabled && editorState.previewActive)
-	CancelPreview(editorState.grid, editorState);
+	cancelPreview(editorState.grid, editorState);
     }
     ImGui::Separator();
 
@@ -109,12 +109,12 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
     // -----------------------------------------------------------------------
     if (ImGui::CollapsingHeader("Scene Controls")) {
       if (ImGui::Button("Load Tutorial Machine"))
-	LoadDefaultScene(editorState);
+	loadDefaultScene(editorState, as);
       ImGui::SameLine();
       if (ImGui::Button("Clear"))
-	ClearScene(editorState);
+	clearScene(editorState, as);
       ImGui::Checkbox("Reset Scene on R", &editorState.resetObjectsOnR);
-      ImGui::Text("Collision objects: %d", (int)editorState.objects.size());
+      //ImGui::Text("Collision objects: %d", (int)editorState.objects.size()); //todo: fix this
     }
 
     // -----------------------------------------------------------------------
@@ -131,7 +131,7 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
 	changed |= ImGui::SliderFloat("Offset Z", &initOffsetZ, -0.5f, 0.5f);
 	if (changed)
 	  particles.ResizeParticles(nPending, smoothingRadius,
-				    initSpacing, initOffsetX, initOffsetY, initOffsetZ);
+				    initSpacing, initOffsetX, initOffsetY, initOffsetZ, as);
       } else {
 	int nDisplay = particles.numParticles;
 	ImGui::BeginDisabled();

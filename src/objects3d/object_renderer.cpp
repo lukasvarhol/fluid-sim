@@ -279,8 +279,8 @@ static void FlushBuffer(ObjectRenderer& r, Vec3 color, float alpha)
 }
 
 void RenderObjects(ObjectRenderer& r,
-                   const std::vector<RGObject>& objects,
-                   const std::vector<RGObject>* previewObjs,
+                   RGObject* objects,
+                   RGObject* previewObjs,
                    const GridState* grid,
                    bool showSelectedCell,
                    bool showOccupiedOutlines,
@@ -302,17 +302,17 @@ void RenderObjects(ObjectRenderer& r,
 
   // --- Pass 1: opaque active objects ---
   glDepthMask(GL_TRUE);
-  for (const RGObject& obj : objects) {
-    if (!obj.active) continue;
-    Vec3 col = (obj.colorOverride.x >= 0.0f)
-      ? obj.colorOverride
-      : ObjectColor(obj.type, false);
+  for (int j{}; j < MAX_OBJECTS; ++j) {
+    if (!objects[j].active) continue;
+    Vec3 col = (objects[j].colorOverride.x >= 0.0f)
+      ? objects[j].colorOverride
+      : ObjectColor(objects[j].type, false);
     
     // check if we have a loaded mesh for this type
-    std::string meshKey = MeshKeyForType(obj.type);
+    std::string meshKey = MeshKeyForType(objects[j].type);
     if (!meshKey.empty() && r.loadedMeshes.count(meshKey)) {
-      Mat4 rot = CreateMatrixRotationXYZ(obj.rotation);
-      Mat4 trans = CreateMatrixTransform(obj.position);
+      Mat4 rot = CreateMatrixRotationXYZ(objects[j].rotation);
+      Mat4 trans = CreateMatrixTransform(objects[j].position);
       Mat4 model = Mat4Multiply(trans, rot);
       glUniform4f(glGetUniformLocation(r.shader, "uColor"), col.x, col.y, col.z, 0.6f);
       DrawMesh(r.loadedMeshes[meshKey], model, view, projection, r.shader,
@@ -321,14 +321,14 @@ void RenderObjects(ObjectRenderer& r,
   }
 
 
-  if (previewObjs && !previewObjs->empty()) {
-    for (const RGObject& obj : *previewObjs) {
-      if (!obj.active) continue;
-      Vec3 col = ObjectColor(obj.type, false);
-      std::string meshKey = MeshKeyForType(obj.type);
+  if (previewObjs) {
+    for (int j{}; j < MAX_OBJECTS; ++j) {
+      if (!previewObjs[j].active) continue;
+      Vec3 col = ObjectColor(previewObjs[j].type, false);
+      std::string meshKey = MeshKeyForType(previewObjs[j].type);
       if (!meshKey.empty() && r.loadedMeshes.count(meshKey)) {
-	Mat4 rot = CreateMatrixRotationXYZ(obj.rotation);
-	Mat4 trans = CreateMatrixTransform(obj.position);
+	Mat4 rot = CreateMatrixRotationXYZ(previewObjs[j].rotation);
+	Mat4 trans = CreateMatrixTransform(previewObjs[j].position);
 	Mat4 model = Mat4Multiply(trans, rot);
 	glUniform4f(glGetUniformLocation(r.shader, "uColor"), col.x, col.y, col.z, 0.3f);
 	DrawMesh(r.loadedMeshes[meshKey], model, view, projection, r.shader, cameraPos);
@@ -363,7 +363,7 @@ void RenderObjects(ObjectRenderer& r,
   if (showSelectedCell && grid) {
     const CellFeature& cf = grid->GetCell(grid->selX, grid->selY, grid->selZ);
     bool cellEmpty = cf.feature == Feature::EMPTY;
-    bool inPreview = previewObjs && !previewObjs->empty();
+    bool inPreview = previewObjs;
     
     Vec3 identAxes[3] = {{1,0,0},{0,1,0},{0,0,1}};
     constexpr float h = CELL_SIZE * 0.5f - 0.001f;

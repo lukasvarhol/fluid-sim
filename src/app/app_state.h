@@ -5,10 +5,17 @@
 #include "viewport.h"
 #include "objects3d/editor_state.h"
 
+#ifdef USE_CUDA
+#include "../cuda_buffers.cuh"
+#endif
+
 struct AppState {
   Camera            *camera;
   InputState        *inputState;
   SimulationControl *simulationControl;
   Viewport          *viewport;
-  EditorState       *editorState;
+  EditorState *editorState;
+#ifdef USE_CUDA
+  CudaBuffers* cudaBuffers;
+#endif
 };

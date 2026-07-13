@@ -6,8 +6,13 @@
 
 #ifdef __CUDACC__
 #define DEVICE_CALLABLE __host__ __device__
+#define SQRT sqrtf
 #else
-#define DEVICE_CALLABLE 
+#define DEVICE_CALLABLE
+#define SQRT std::sqrt
+using std::min;
+using std::max;
+using std::abs;
 #endif
 
 constexpr float PI = 3.14159265358979323846f;
@@ -28,22 +33,40 @@ struct Mat4 {
 struct Vec2 {
   float x, y;
 
-  float Magnitude() const { return std::sqrt(x*x + y*y); }
+  DEVICE_CALLABLE
+  float Magnitude() const { return SQRT(x * x + y * y); }
+  DEVICE_CALLABLE
   float Dot(const Vec2& o) const { return x*o.x + y*o.y; }
 
-  Vec2& operator+=(const Vec2& o) { x+=o.x; y+=o.y; return *this; }
+  DEVICE_CALLABLE
+  Vec2 &operator+=(const Vec2 &o) {
+    x += o.x;
+    y += o.y;
+    return *this;
+  }
+  DEVICE_CALLABLE
   Vec2& operator-=(const Vec2& o) { x-=o.x; y-=o.y; return *this; }
+  DEVICE_CALLABLE
   Vec2& operator*=(const Vec2& o) { x*=o.x; y*=o.y; return *this; }
+  DEVICE_CALLABLE
   Vec2& operator/=(const Vec2& o) { x/=o.x; y/=o.y; return *this; }
 
+  DEVICE_CALLABLE
   Vec2 operator+(const Vec2& o) const { return {x+o.x, y+o.y}; }
+  DEVICE_CALLABLE
   Vec2 operator-(const Vec2& o) const { return {x-o.x, y-o.y}; }
+  DEVICE_CALLABLE
   Vec2 operator*(const Vec2& o) const { return {x*o.x, y*o.y}; }
+  DEVICE_CALLABLE
   Vec2 operator/(const Vec2& o) const { return {x/o.x, y/o.y}; }
 
+  DEVICE_CALLABLE
   Vec2& operator*=(float s) { x*=s; y*=s; return *this; }
+  DEVICE_CALLABLE
   Vec2& operator/=(float s) { float r=1.f/s; x*=r; y*=r; return *this; }
+  DEVICE_CALLABLE
   Vec2 operator*(float s) const { return {x*s, y*s}; }
+  DEVICE_CALLABLE
   Vec2 operator/(float s) const { float r=1.f/s; return {x*r, y*r}; }
 };
 
@@ -52,7 +75,7 @@ struct alignas(16) Vec3 {
   float padding;
 
   DEVICE_CALLABLE
-  float Magnitude() const { return std::sqrt(x * x + y * y + z * z); }
+  float Magnitude() const { return SQRT(x * x + y * y + z * z); }
   DEVICE_CALLABLE
   float Dot(const Vec3& o) const { return x*o.x + y*o.y + z*o.z; }
 

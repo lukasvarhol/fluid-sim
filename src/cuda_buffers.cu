@@ -53,7 +53,10 @@ CudaBuffers::CudaBuffers(Particles& particles) {
       cudaMalloc((void **)&deltas_d, sizeof(Vec3) * particles.activeParticles);
   printError(err);
 
- handleCellGridUpdate(particles.numCells1D);
+  err = cudaMalloc((void **)&colliders_d, sizeof(SDFCollider) * MAX_OBJECTS);
+  printError(err);
+
+  handleCellGridUpdate(particles.numCells1D);
 
  if (blocksPerGridL2 == 1) {
     err = cudaMalloc((void **)&sumsL1_d, blocksPerGridL1 * sizeof(int));
@@ -117,6 +120,8 @@ CudaBuffers::~CudaBuffers() {
   printError(err);
   err = cudaFree(deltas_d);
   printError(err);
+  err = cudaFree(colliders_d);
+  printError(err);
 
   if (blocksPerGridL2 == 1 || blocksPerGridL3 == 1) {
     err = cudaFree(sumsL1_d);
@@ -152,3 +157,4 @@ void CudaBuffers::handleCellGridUpdate(int numCells1D) {
                    numCells1D * numCells1D * numCells1D * sizeof(int));
   CudaBuffers::printError(err);
 }
+

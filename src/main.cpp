@@ -4,6 +4,10 @@
 #include <limits>
 #include "tiny_obj_loader.h"
 
+#ifdef USE_CUDA
+#include "cuda_buffers.cuh"
+#endif
+
 bool isBenchmarking = false;
 bool runParallel = true;
 int currentFrame = 0;
@@ -106,8 +110,9 @@ int main(int argc, char *argv[]) {
       std::cout << "filepath: " << filepath << std::endl;
       Particles particles(profilerParticles, smoothingRadius);
 
-      std::vector<SDFCollider> colliders;
+      SDFCollider colliders[MAX_OBJECTS];
       GridState grid;
+      AppState appState;
 
       std::vector<Vec3> triangles = LoadOBJTriangles("meshes/SChannel.obj");
       
@@ -119,9 +124,12 @@ int main(int argc, char *argv[]) {
 	      SDFCollider c;
 	      c.type = RGObjectType::S_CHANNEL;
 	      c.worldPosition = grid.CellCenterWorld(x, y, z);
-	      c.rotationAxes = { Vec3{1,0,0}, Vec3{0,1,0}, Vec3{0,0,1} };
-	      c.restitution = energyRetention;
-	      colliders.push_back(c);
+              c.rotationAxes[0] = Vec3{1, 0, 0};
+              c.rotationAxes[1] = Vec3{0, 1, 0};
+              c.rotationAxes[2] = Vec3{0, 0, 1};
+              c.restitution = energyRetention;
+	      size_t cellIdx = grid.CellIndex(x,y,z);
+	      colliders[cellIdx] = c;
 	      ++count;
 	    } else  {
               TriCollider tc;
@@ -140,7 +148,7 @@ int main(int argc, char *argv[]) {
       	    
       for (int i = 0; i < profilerFrames; ++i) {
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
-                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f, colliders);
+                         Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f,colliders, &appState);
 	currentFrame++;
       }
 
@@ -222,6 +230,12 @@ int main(int argc, char *argv[]) {
 
   Particles particles(numParticles, smoothingRadius);
 
+#ifdef USE_CUDA
+  CudaBuffers cudaBuffers(particles);
+  appState.cudaBuffers = &cudaBuffers;
+#endif
+
+
   ObjectRenderer objectRenderer;
   SetupObjectRenderer(objectRenderer);
 
@@ -272,7 +286,7 @@ int main(int argc, char *argv[]) {
 
   float dtMeasured = 0.0f;
 
-  std::vector<SDFCollider> colliders;
+  SDFCollider colliders[MAX_OBJECTS];
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -282,7 +296,7 @@ int main(int argc, char *argv[]) {
     lastTime = now;
     dtMeasured = std::min(dtMeasured, 1.0f / 60.0f);
 
-    DrawHUD(particles, simulationControl, editorState, dtMeasured);
+    DrawHUD(particles, simulationControl, editorState, &appState, dtMeasured);
 
     radiusPx = radiusLogical * xScale;
 
@@ -293,7 +307,7 @@ int main(int argc, char *argv[]) {
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
     if (wasReset) {
       if (editorState.resetObjectsOnR)
-        LoadDefaultScene(editorState);
+        loadDefaultScene(editorState, &appState);
     }
     // std::vector<SDFCollider> testColliders;
     // BuildSDFColliders(editorState.objects, testColliders);
@@ -306,10 +320,10 @@ int main(int argc, char *argv[]) {
 
     std::vector<Vec3> sdfPoints;
     if (dtToSim > 0) {
-      BuildSDFColliders(editorState.objects, colliders);
+      //BuildSDFColliders(editorState.objects, colliders);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
-                       mouseRay.direction, mouseRay.strength, colliders);
+                       mouseRay.direction, mouseRay.strength, editorState.colliders, &appState);
 
     }
 
@@ -323,7 +337,7 @@ int main(int argc, char *argv[]) {
       float aspect = (float)viewport.screenWidth / (float)viewport.screenHeight;
       Mat4 proj = Perspective(45.0f * PI / 180.0f, aspect, 0.1f, 100.0f);
       RenderObjects(objectRenderer, editorState.objects,
-                    editorState.previewActive ? &editorState.previewObjects
+                    editorState.previewActive ? editorState.previewObjects
                                               : nullptr,
                     &editorState.grid, editorState.showSelectedCell,
                     editorState.showOccupiedOutlines, cameraState.view, proj,
