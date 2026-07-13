@@ -6,15 +6,7 @@
 #include <cmath>
 #include <numeric>
 
-struct SDFCollider {
-  RGObjectType type;
-  Vec3 worldPosition;
-  Vec3 rotationAxes[3];
-  float restitution;
-};
 void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx);
-
-void deleteCollider(size_t idx);
 
 void BuildSDFColliders(const std::vector<RGObject>& objects, std::vector<SDFCollider>& colliders);
 

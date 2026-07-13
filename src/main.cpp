@@ -296,7 +296,7 @@ int main(int argc, char *argv[]) {
     float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
     if (wasReset) {
       if (editorState.resetObjectsOnR)
-        LoadDefaultScene(editorState);
+        loadDefaultScene(editorState);
     }
     // std::vector<SDFCollider> testColliders;
     // BuildSDFColliders(editorState.objects, testColliders);
@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
       //BuildSDFColliders(editorState.objects, colliders);
       particles.Update(dtToSim, smoothingRadius, radiusPx, viewport.screenWidth,
                        viewport.screenHeight, mouseRay.origin,
-                       mouseRay.direction, mouseRay.strength, colliders);
+                       mouseRay.direction, mouseRay.strength, editorState.colliders);
 
     }
 

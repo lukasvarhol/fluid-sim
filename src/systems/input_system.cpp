@@ -29,7 +29,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     // ESC: cancel preview (if Objects Mode on) or toggle HUD — always works
     if (key == GLFW_KEY_ESCAPE && isPress) {
         if (es->objectsModeEnabled && es->previewActive) {
-            CancelPreview(grid, *es);
+            cancelPreview(grid, *es);
             es->statusMsg   = "Cancelled preview.";
             es->statusTimer = 2.0f;
         } else {
@@ -45,8 +45,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
         // Cell navigation — PRESS and REPEAT (cancels active preview)
         auto doNavigate = [&](int dx, int dy, int dz) {
-            if (es->previewActive) CancelPreview(grid, *es);
-            NavigateCell(grid, dx, dy, dz);
+            if (es->previewActive) cancelPreview(grid, *es);
+            navigateCell(grid, dx, dy, dz);
         };
 
         if (key == GLFW_KEY_LEFT)       { doNavigate(-1,  0,  0); return; }
@@ -64,10 +64,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             // F: cycle feature (through preview)
             if (key == GLFW_KEY_F) {
                 int delta = (mods & GLFW_MOD_SHIFT) ? -1 : 1;
-                if (!es->previewActive) StartPreview(grid, *es);
+                if (!es->previewActive) startPreview(grid, *es);
                 int n = (((int)es->previewCell.feature + delta) % FEATURE_COUNT + FEATURE_COUNT) % FEATURE_COUNT;
                 es->previewCell.feature = static_cast<Feature>(n);
-                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
+                addPreviewObject(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Preview: ") + kFeatureNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -76,10 +76,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             // Q: rotate orientation CW (+1)
             if (key == GLFW_KEY_Q) {
-                if (!es->previewActive) StartPreview(grid, *es);
+                if (!es->previewActive) startPreview(grid, *es);
                 int n = ((int)es->previewCell.facing + 1 + 4) % 4;
                 es->previewCell.facing = static_cast<Orientation>(n);
-                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
+                addPreviewObject(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Facing: ") + kOrientNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -88,10 +88,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             // E: rotate orientation CCW (-1)
             if (key == GLFW_KEY_E) {
-                if (!es->previewActive) StartPreview(grid, *es);
+                if (!es->previewActive) startPreview(grid, *es);
                 int n = ((int)es->previewCell.facing - 1 + 4) % 4;
                 es->previewCell.facing = static_cast<Orientation>(n);
-                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
+                addPreviewObject(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = std::string("Facing: ") + kOrientNames[n]
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -101,10 +101,10 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             // V: cycle variant (through preview)
             if (key == GLFW_KEY_V) {
                 int delta = (mods & GLFW_MOD_SHIFT) ? -1 : 1;
-                if (!es->previewActive) StartPreview(grid, *es);
+                if (!es->previewActive) startPreview(grid, *es);
                 int v = std::max(0, std::min(4, es->previewCell.variant + delta));
                 es->previewCell.variant = v;
-                RegeneratePreviewObjects(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
+                addPreviewObject(*es, grid.CellIndex(grid.selX, grid.selY, grid.selZ));
                 es->statusMsg   = "Preview: variant " + std::to_string(v)
                                   + "  [Enter]=Place  [Esc]=Cancel";
                 es->statusTimer = 4.0f;
@@ -116,7 +116,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (es->previewActive) {
                     int px = es->previewX, py = es->previewY, pz = es->previewZ;
                     int fn = (int)es->previewCell.feature;
-                    CommitPreview(grid, *es);
+                    commitPreview(grid, *es);
                     es->statusMsg   = std::string("Placed ") + kFeatureNames[fn]
                                       + " at (" + std::to_string(px) + ","
                                       + std::to_string(py) + "," + std::to_string(pz) + ").";
@@ -127,8 +127,8 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
             // Delete / Backspace: cancel any preview, then clear the cell
             if (key == GLFW_KEY_DELETE || key == GLFW_KEY_BACKSPACE) {
-                if (es->previewActive) CancelPreview(grid, *es);
-                ClearCell(grid, *es);
+                if (es->previewActive) cancelPreview(grid, *es);
+                clearCell(grid, *es);
                 es->statusMsg   = "Cell cleared.";
                 es->statusTimer = 2.0f;
                 return;

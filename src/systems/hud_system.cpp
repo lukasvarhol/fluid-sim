@@ -38,7 +38,7 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
       ImGui::Checkbox("Enable Objects Mode", &editorState.objectsModeEnabled);
       ImGui::TextDisabled("Object editing keys work only when Objects Mode is enabled.");
       if (prevEnabled && !editorState.objectsModeEnabled && editorState.previewActive)
-	CancelPreview(editorState.grid, editorState);
+	cancelPreview(editorState.grid, editorState);
     }
     ImGui::Separator();
 
@@ -109,10 +109,10 @@ void DrawHUD(Particles& particles, SimulationControl& simulationControl,
     // -----------------------------------------------------------------------
     if (ImGui::CollapsingHeader("Scene Controls")) {
       if (ImGui::Button("Load Tutorial Machine"))
-	LoadDefaultScene(editorState);
+	loadDefaultScene(editorState);
       ImGui::SameLine();
       if (ImGui::Button("Clear"))
-	ClearScene(editorState);
+	clearScene(editorState);
       ImGui::Checkbox("Reset Scene on R", &editorState.resetObjectsOnR);
       //ImGui::Text("Collision objects: %d", (int)editorState.objects.size()); //todo: fix this
     }

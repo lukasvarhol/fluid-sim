@@ -19,37 +19,6 @@ void addCollider(SDFCollider* colliders, RGObject* objects, size_t idx) {
   colliders[idx] = collider;
 }
 
-void deleteCollider(SDFCollider *colliders, RGObject* objects, size_t idx) {
-  if (idx > MAX_OBJECTS - 1)
-    return;
-  SDFCollider collider;
-  collider.type = RGObjectType::BOX;
-  colliders[idx] = collider;
-}
-
-void BuildSDFColliders(const std::vector<RGObject> &objects,
-                  std::vector<SDFCollider> &colliders) {
-  colliders.clear();
-  for (const auto &object : objects) {
-    if (!object.active)
-      continue; // exclude preview objects from collisions
-    if (object.type == RGObjectType::BOX) continue;
-
-    Mat4 rotationMatrix = CreateMatrixRotationXYZ(object.rotation);
-    Vec3 axes[3] = {TransformDir(rotationMatrix, {1, 0, 0}),
-                                   TransformDir(rotationMatrix, {0, 1, 0}),
-                                   TransformDir(rotationMatrix, {0, 0, 1})};
-
-    SDFCollider collider;
-    collider.type = object.type;
-    collider.worldPosition = object.position;
-    memcpy(collider.rotationAxes, axes, sizeof(axes));
-    collider.restitution = energyRetention;
-
-    colliders.push_back(collider);
-  }
-}
-
 void ProjectParticleSDF(Vec3& position, Vec3& velocity, const SDFCollider &collider) {
   Vec3 d = position - collider.worldPosition;
   Vec3 localPosition = {
