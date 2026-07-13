@@ -569,35 +569,45 @@ __global__ void clampToBoundariesKernel(Vec3* predictedPositions, float radiusPx
 void gpuClampToBoundaries(CudaBuffers& cb, Vec3* predictedPositions_h, float radiusPx, int g_fb_w, int g_fb_h, int activeParticles) {
   clampToBoundariesKernel<<<ceil(activeParticles / 128.0), 128>>>(
 								  cb.predictedPositions_d, radiusPx, g_fb_w, g_fb_h, activeParticles);
-
-  cudaMemcpy(predictedPositions_h, cb.predictedPositions_d, activeParticles * sizeof(Vec3),
-             cudaMemcpyDeviceToHost);
-
 }
 
 
 __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
-                                         const SDFCollider *collider, int activeParticles) {
+                                         SDFCollider *colliders, int activeParticles) {
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (i < activeParticles) {
-    Vec3 d = positions[i] - collider->worldPosition;
-    Vec3 localPosition = {d.Dot(collider->rotationAxes[0]),
-                          d.Dot(collider->rotationAxes[1]),
-                          d.Dot(collider->rotationAxes[2])};
+    for (size_t j{}; j < MAX_OBJECTS; ++j) {
+      SDFCollider* collider = &colliders[j];
+      if (collider->type == RGObjectType::BOX)
+        continue;
+      Vec3 d = positions[i] - collider->worldPosition;
+      Vec3 localPosition = {d.Dot(collider->rotationAxes[0]),
+			    d.Dot(collider->rotationAxes[1]),
+			    d.Dot(collider->rotationAxes[2])};
 
-    float pushDistance = sdfDispatch(collider->type, localPosition);
-    if (pushDistance >= 0.0f) return;
+      float pushDistance = sdfDispatch(collider->type, localPosition);
+      if (pushDistance >= 0.0f) continue;
 
-    Vec3 localGradient = sdfGradient(collider->type, localPosition);
-    Vec3 worldGradient = collider->rotationAxes[0] * localGradient.x +
-      collider->rotationAxes[1] * localGradient.y +
-      collider->rotationAxes[2] * localGradient.z;
-    positions[i] += worldGradient * (-pushDistance + 0.002f);
-    float velocityDot = velocities[i].Dot(worldGradient);
-    if (velocityDot < 0.0f)
-      velocities[i] -= worldGradient * ((1.0f + collider->restitution) * velocityDot);
+      Vec3 localGradient = sdfGradient(collider->type, localPosition);
+      Vec3 worldGradient = collider->rotationAxes[0] * localGradient.x +
+	collider->rotationAxes[1] * localGradient.y +
+	collider->rotationAxes[2] * localGradient.z;
+      positions[i] += worldGradient * (-pushDistance + 0.002f);
+      float velocityDot = velocities[i].Dot(worldGradient);
+      if (velocityDot < 0.0f)
+	velocities[i] -= worldGradient * ((1.0f + collider->restitution) * velocityDot);
+    }
   }
 }
 
-//void gpuProjectParticleSDF
+void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
+                           Vec3 *velocities_h, int activeParticles) {
+  projectParticleSDFKernel<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.predictedPositions_d, cb.velocities_d, cb.colliders_d, activeParticles);
+  cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
+             activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
+  cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
+             cudaMemcpyDeviceToHost);
+
+}

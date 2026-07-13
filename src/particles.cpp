@@ -303,10 +303,16 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
       if (!useTriangleCollisions) {
         Profiler::Timer timer(COLLISION_SDF, currentFrame, isBenchmarking);
+#ifdef USE_CUDA
+	CudaBuffers& cb = *as->cudaBuffers;
+	gpuProjectParticleSDF(cb, predictedPositions.data(),
+			      velocities.data(), activeParticles);
+#else
         ParallelFor(activeParticles, [&](int i) {
 	  for (int j{}; j < MAX_OBJECTS; ++j)
             ProjectParticleSDF(predictedPositions[i], velocities[i], colliders[j]);
-	});
+        });
+#endif
       } else {
         Profiler::Timer timer(COLLISION_TRI_BRUTE, currentFrame,
                               isBenchmarking);
