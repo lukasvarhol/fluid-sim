@@ -31,4 +31,7 @@ void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
                            Vec3 *velocities_h, int activeParticles);
 
 void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *positions_h, Vec3 *velocities_h,
-                         float dt, int activeParticles);
+                         float dt, float mSpeed, int activeParticles);
+
+void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
+                  int activeParticles);

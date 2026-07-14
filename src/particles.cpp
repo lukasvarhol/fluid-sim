@@ -1,4 +1,5 @@
 #include "particles.h"
+#include "particle_config.h"
 
 #include <chrono>
 #include <cmath>
@@ -192,7 +193,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     CudaBuffers& cb = *as->cudaBuffers;
     gpuGravityPredict(cb, positions.data(), velocities.data(), predictedPositions.data(), gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
-                   numParticles); 
+                   activeParticles); 
 #else
     for (int i = 0; i < activeParticles; ++i) {
     
@@ -329,7 +330,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(VELOCITY_UPDATE, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    gpuUpdateVelocities(cb, predictedPositions.data(), positions.data(), velocities.data(), dt, activeParticles);
+    gpuUpdateVelocities(cb, predictedPositions.data(), positions.data(), velocities.data(), dt, maxSpeed, activeParticles);
 #else
     ParallelFor(activeParticles, [&](int i) {
       velocities[i] = (predictedPositions[i] - positions[i]) / dt;
@@ -342,12 +343,15 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 #endif
   }
 
-  std::vector<Vec3> newVelocities = velocities;
+  //std::vector<Vec3> newVelocities = velocities;
 
   // 5. XSPH viscosity
   {
     Profiler::Timer timer(VISCOSITY, currentFrame, isBenchmarking);
-    
+#ifdef USE_CUDA
+    CudaBuffers& cb = *as->cudaBuffers;
+    gpuViscosity(cb, velocities.data(), h2, xsphC, activeParticles);
+#else
     ParallelFor(activeParticles, [&](int i) {
       Vec3  xsph = {0.0f, 0.0f, 0.0f};
       float wSum = 0.0f;
@@ -374,10 +378,12 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       Vec3  dv  = xsph * xsphC;
       float mag = dv.Magnitude();
       if (mag > maxDv)
-	dv = dv * (maxDv / mag);
+        dv = dv * (maxDv / mag);
       
-      newVelocities[i] = velocities[i] + dv;
+      velocities[i] += dv;
+      //newVelocities[i] = velocities[i] + dv;
     });
+#endif
   }
   
   // 6. Vorticity confinement
@@ -386,7 +392,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(VORTICITY, currentFrame, isBenchmarking);
     ParallelFor(activeParticles, [&](int i) {
       Vec3 omega = {0.0f, 0.0f, 0.0f};
-      const Vec3& vi    = newVelocities[i];
+      //const Vec3& vi    = newVelocities[i];
+      const Vec3& vi = velocities[i];
 
       int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
       for (int k = 0; k < neighbourCount[i]; ++k) {
@@ -399,8 +406,9 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
 	float d     = std::sqrt(d2);
 	float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
-	Vec3  gradW = diff * s;      
-	Vec3 vij = newVelocities[j] - vi;
+	Vec3  gradW = diff * s;
+        //Vec3 vij = newVelocities[j] - vi;
+	Vec3 vij = velocities[j] - vi;
        
 	omega.x += vij.y * gradW.z - vij.z * gradW.y;
 	omega.y += vij.z * gradW.x - vij.x * gradW.z;
@@ -441,9 +449,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 	N.z * omega.x - N.x * omega.z,
 	N.x * omega.y - N.y * omega.x
       };
-      newVelocities[i] += f_vorticity * (vorticityEpsilon * dt);
+      //newVelocities[i] += f_vorticity * (vorticityEpsilon * dt);
+      velocities[i] += f_vorticity * (vorticityEpsilon * dt);
     });
-    velocities = newVelocities;
+    //velocities = newVelocities;
   }
 }
 

@@ -77,8 +77,8 @@ void gpuGravityPredict(CudaBuffers& cb, Vec3* positions_h, Vec3* velocities_h, V
 
   cudaEventRecord(start);
   
-  // cudaMemcpy(cb.positions_d, positions_h, size, cudaMemcpyHostToDevice);
-  // cudaMemcpy(cb.velocities_d, velocities_h, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(cb.positions_d, positions_h, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(cb.velocities_d, velocities_h, size, cudaMemcpyHostToDevice);
 
   gravityPredictKernel<<<ceil(n / 128.0), 128>>>(
 						 cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
@@ -609,12 +609,17 @@ void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
                            Vec3 *velocities_h, int activeParticles) {
   projectParticleSDFKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.colliders_d, activeParticles);
+  // cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
+  //            activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
+  // cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
+  //            cudaMemcpyDeviceToHost);
+
 }
 
 // TODO: projectParticleTri
 
 __global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
-                              Vec3 *velocities, float dt ,int activeParticles) {
+				     Vec3 *velocities, float dt, float mSpeed, int activeParticles) {
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (i < activeParticles) {
@@ -622,21 +627,65 @@ __global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
     positions[i] = predictedPositions[i];
 
     float speed = velocities[i].Magnitude();
-    if (speed > maxSpeed)
-      velocities[i] *= (maxSpeed / speed);
+    if (speed > mSpeed)
+      velocities[i] *= (mSpeed / speed);
   }
 }
 
 void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *positions_h, Vec3 *velocities_h,
-                         float dt, int activeParticles) {
+                         float dt, float mSpeed, int activeParticles) {
   updateVelocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
-      cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt,
-      activeParticles);
+							       cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt, mSpeed,
+							       activeParticles);
   cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
              cudaMemcpyDeviceToHost);
- cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
+  cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
              activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
+
+}
+
+
+
+__global__ void viscocityKernel(Vec3* predictedPositions, Vec3* velocities, int* neighbourData, int* neighbourCount, float h2, float xsphC, int activeParticles) {
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (i < activeParticles) {
+    Vec3 xsph = {0.0f, 0.0f, 0.0f};
+    float wSum = 0.0f;
+
+    int *currentNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+    for (int e{}; e < neighbourCount[i]; ++e) {
+      int j = currentNeighbours[e];
+      if (j == i)
+        continue;
+
+      Vec3 diff = predictedPositions[i] - predictedPositions[j];
+      float d2 = diff.Dot(diff);
+      if (d2 >= h2)
+        continue;
+
+      float sq = h2 - d2;
+      float w = poly6_coeff_d * sq * sq * sq;
+      xsph += (velocities[j] - velocities[i]) * w;
+      wSum += w;
+    }
+    if (wSum > 1e-6f)
+      xsph = xsph * (1.0f / wSum);
+
+    Vec3 dv = xsph * xsphC;
+    float mag = dv.Magnitude();
+    if (mag > maxDv)
+      dv = dv * (maxDv / mag);
+
+    velocities[i] += dv;
+  }
+}
+
+void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
+                  int activeParticles) {
+  viscocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.predictedPositions_d, cb.velocities_d, cb.neighbourData_d,
+      cb.neighbourCount_d, h2, xsphC, activeParticles);
   cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
              cudaMemcpyDeviceToHost);
 }
-
