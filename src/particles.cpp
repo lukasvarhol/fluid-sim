@@ -327,6 +327,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   // 4. velocity update
   {
     Profiler::Timer timer(VELOCITY_UPDATE, currentFrame, isBenchmarking);
+#ifdef USE_CUDA
+    CudaBuffers& cb = *as->cudaBuffers;
+    gpuUpdateVelocities(cb, predictedPositions.data(), positions.data(), velocities.data(), dt, activeParticles);
+#else
     ParallelFor(activeParticles, [&](int i) {
       velocities[i] = (predictedPositions[i] - positions[i]) / dt;
       positions[i] = predictedPositions[i];
@@ -335,6 +339,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       if (speed > maxSpeed)
 	velocities[i] *= (maxSpeed / speed);
     });
+#endif
   }
 
   std::vector<Vec3> newVelocities = velocities;

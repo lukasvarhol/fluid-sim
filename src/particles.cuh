@@ -29,3 +29,6 @@ void gpuClampToBoundaries(CudaBuffers &cb, Vec3* predictedPositions_h, float rad
 
 void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
                            Vec3 *velocities_h, int activeParticles);
+
+void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *positions_h, Vec3 *velocities_h,
+                         float dt, int activeParticles);

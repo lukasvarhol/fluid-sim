@@ -1,4 +1,8 @@
+#include "linear_algebra.h"
+#include "particle_config.h"
 #include "particles.cuh"
+#include <cstdlib>
+
 
 #define NUM_BANKS 16
 #define LOG_NUM_BANKS 4
@@ -73,8 +77,8 @@ void gpuGravityPredict(CudaBuffers& cb, Vec3* positions_h, Vec3* velocities_h, V
 
   cudaEventRecord(start);
   
-  cudaMemcpy(cb.positions_d, positions_h, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(cb.velocities_d, velocities_h, size, cudaMemcpyHostToDevice);
+  // cudaMemcpy(cb.positions_d, positions_h, size, cudaMemcpyHostToDevice);
+  // cudaMemcpy(cb.velocities_d, velocities_h, size, cudaMemcpyHostToDevice);
 
   gravityPredictKernel<<<ceil(n / 128.0), 128>>>(
 						 cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
@@ -605,9 +609,34 @@ void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
                            Vec3 *velocities_h, int activeParticles) {
   projectParticleSDFKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.colliders_d, activeParticles);
-  cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
+}
+
+// TODO: projectParticleTri
+
+__global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
+                              Vec3 *velocities, float dt ,int activeParticles) {
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (i < activeParticles) {
+    velocities[i] = (predictedPositions[i] - positions[i]) / dt;
+    positions[i] = predictedPositions[i];
+
+    float speed = velocities[i].Magnitude();
+    if (speed > maxSpeed)
+      velocities[i] *= (maxSpeed / speed);
+  }
+}
+
+void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *positions_h, Vec3 *velocities_h,
+                         float dt, int activeParticles) {
+  updateVelocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt,
+      activeParticles);
+  cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
+             cudaMemcpyDeviceToHost);
+ cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
              activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
   cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
              cudaMemcpyDeviceToHost);
-
 }
+
