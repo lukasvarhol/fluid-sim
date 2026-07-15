@@ -2,7 +2,7 @@
 #include "particle_config.h"
 #include "particles.cuh"
 #include <cstdlib>
-
+#include <driver_types.h>
 
 #define NUM_BANKS 16
 #define LOG_NUM_BANKS 4
@@ -268,8 +268,18 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
 
   /* ------ Phase 1: assign particle to cell ------ */
   particleToCellKernel<<<ceil(activeParticles / 384.0), 384>>>(
-							       cb.predictedPositions_d, cb.gridCount_d, smoothingRadius, numCells1D,
-							       activeParticles);
+      cb.predictedPositions_d, cb.gridCount_d, smoothingRadius, numCells1D,
+      activeParticles);
+  
+  cudaError_t err = cudaGetLastError();
+  if (err != cudaSuccess) {
+    printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
+  }
+
+  err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
+  }
 
   /* ------ Phase 2: Parallel Prefix Sum ------ */
 
@@ -279,11 +289,33 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
     cudaDeviceSynchronize();
   } else if (cb.blocksPerGridL2 == 1) {
 
-    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, cb.gridCount_d,
-						   numCells, cb.sumsL1_d);
+    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(
+        cb.gridStart_d, cb.gridCount_d, numCells, cb.sumsL1_d);
+
+    
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
+    }
+
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
+    }
 
     scanKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(cb.incrL1_d, cb.sumsL1_d,
-						   cb.blocksPerGridL1, NULL);
+                                                   cb.blocksPerGridL1, NULL);
+
+    
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
+    }
+
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
+    }
 
     uniformAddKernel <<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, numCells, cb.incrL1_d);
 
@@ -291,8 +323,19 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
   } else if (cb.blocksPerGridL3 == 1) {
 
 
-    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, cb.gridCount_d,
-						   numCells, cb.sumsL1_d);
+    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(
+        cb.gridStart_d, cb.gridCount_d, numCells, cb.sumsL1_d);
+
+    
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
+    }
+
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
+    }
 
     scanKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(cb.incrL1_d, cb.sumsL1_d,
 						   cb.blocksPerGridL1, cb.sumsL2_d);
@@ -316,8 +359,18 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
              cudaMemcpyDeviceToDevice);
 
   fillGridKernel<<<ceil(activeParticles / 384.0), 384>>>(
-							 cb.gridData_d, cb.insertPos_d, cb.predictedPositions_d, smoothingRadius,
-							 numCells1D, activeParticles);
+      cb.gridData_d, cb.insertPos_d, cb.predictedPositions_d, smoothingRadius,
+      numCells1D, activeParticles);
+  
+   err = cudaGetLastError();
+  if (err != cudaSuccess) {
+    printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
+  }
+
+  err = cudaDeviceSynchronize();
+  if (err != cudaSuccess) {
+    printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
+  }
 
   /* ------ Cleanup ------ */
 
@@ -393,21 +446,26 @@ __global__ void needsNeighbourRebuildKernel(Vec3 *predictedPositions,
 void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
                         int *neighbourCount_h,
                         std::vector<Vec3> &positionsAtLastBuild_h,
-                        float smoothingRadius,
-                        float skinRadius2, int numCells1D,
-                        int activeParticles) {
+                        float smoothingRadius, float skinRadius2,
+                        int numCells1D, int activeParticles,
+                        bool forceRebuild) {
+  int one = 1;
+  if (forceRebuild) {
+    cudaMemcpy(cb.buildNeighbours_d, &one, sizeof(int), cudaMemcpyHostToDevice);
+  } else {
+    cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
+    if ((int)positionsAtLastBuild_h.size() < activeParticles)
+      cudaMemcpy(cb.buildNeighbours_d, &one, sizeof(int), cudaMemcpyHostToDevice);
+    else {
+      cudaMemcpy(cb.positionsAtLastBuild_d, positionsAtLastBuild_h.data(),
+		 sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
 
-  cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
-
-  if ((int)positionsAtLastBuild_h.size() < activeParticles)
-    cudaMemset(cb.buildNeighbours_d, 1, sizeof(int));
-  else {
-    cudaMemcpy(cb.positionsAtLastBuild_d, positionsAtLastBuild_h.data(),
-	       sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
-
-    needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(cb.predictedPositions_d, cb.positionsAtLastBuild_d, cb.buildNeighbours_d, skinRadius2, activeParticles);
-
+      needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(
+          cb.predictedPositions_d, cb.positionsAtLastBuild_d,
+          cb.buildNeighbours_d, skinRadius2, activeParticles);
+    }
   }
+
   int buildNeighbours_h;
   cudaMemcpy(&buildNeighbours_h, cb.buildNeighbours_d, sizeof(int), cudaMemcpyDeviceToHost);
   if(buildNeighbours_h == 1) {
@@ -419,7 +477,7 @@ void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
     cudaMemcpy(neighbourData_h, cb.neighbourData_d, activeParticles * MAX_NEIGHBOURS * sizeof(int),
 	       cudaMemcpyDeviceToHost);
     cudaMemcpy(neighbourCount_h, cb.neighbourCount_d,
-	       activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
+               activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
   }
 
 }
@@ -688,4 +746,69 @@ void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
       cb.neighbourCount_d, h2, xsphC, activeParticles);
   cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
              cudaMemcpyDeviceToHost);
+}
+
+__global__ void estimateRestDensityKernel(float* density, Vec3* predictedPositions, int* neighbourData, int* neighbourCount, int c, float h2) {
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+  int currentNeighbourCount = neighbourCount[c];
+  if (i < currentNeighbourCount) {
+    int j = neighbourData[(c * MAX_NEIGHBOURS) + i];
+    if (j == c)
+      return;
+
+    Vec3 diff = predictedPositions[c] - predictedPositions[j];
+    float d2 = diff.Dot(diff);
+    if (d2 >= h2)
+      return;
+
+    float sq = h2 - d2;
+    atomicAdd(density, poly6_coeff_d * sq * sq * sq);
+  }
+}
+
+void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRadius, int numParticles) {
+  int centre = numParticles / 2;
+  float *density_d;
+
+  float h2 = smoothingRadius * smoothingRadius;
+
+  float poly6_coeff_h = 315.0f / (64.0f * PI * powf(smoothingRadius, 9));
+  cudaError_t err;
+  err = cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float));
+  if (err != cudaSuccess) {
+    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
+	   __LINE__);
+    exit(EXIT_FAILURE);
+  }
+
+  *density_h = poly6_coeff_h * h2 * h2 * h2;
+  printf("init density: %f\n", *density_h);
+  err = cudaMalloc((void **)&density_d, sizeof(float));
+  if (err != cudaSuccess) {
+    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
+	   __LINE__);
+    exit(EXIT_FAILURE);
+  }
+  err =
+    cudaMemcpy(density_d, density_h, sizeof(float), cudaMemcpyHostToDevice);
+  if (err != cudaSuccess) {
+    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
+	   __LINE__);
+    exit(EXIT_FAILURE);
+  }
+
+
+  estimateRestDensityKernel<<<ceil(MAX_NEIGHBOURS/32.0), 32>>>(density_d, cb.predictedPositions_d, cb.neighbourData_d, cb.neighbourCount_d, centre, h2);
+
+  err = cudaMemcpy(density_h, density_d, sizeof(float), cudaMemcpyDeviceToHost);
+  if (err != cudaSuccess) {
+    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
+	   __LINE__);
+    exit(EXIT_FAILURE);
+  }
+  cudaFree(density_d);
+
+  printf("rest density: %f\n", *density_h);
+
 }

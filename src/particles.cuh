@@ -15,7 +15,7 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
 
 void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
                         int *neighbourCount_h, std::vector<Vec3> &positionsAtLastBuild_h, float smoothingRadius, float skinRadius2,
-                        int numCells1D, int activeParticles);
+                        int numCells1D, int activeParticles, bool forceRebuild=false);
 
 void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
                         float restDensity, float smoothingRadius,
@@ -35,3 +35,5 @@ void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *posi
 
 void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
                   int activeParticles);
+
+void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRadius, int numParticles);

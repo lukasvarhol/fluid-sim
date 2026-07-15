@@ -1,5 +1,7 @@
 #include "particles.h"
+#include "cuda_buffers.cuh"
 #include "particle_config.h"
+#include "particles.cuh"
 
 #include <chrono>
 #include <cmath>
@@ -53,7 +55,14 @@ Particles::Particles(int n, float smoothingRadius)
   BuildGrid(smoothingRadius);
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
+
+#ifdef USE_CUDA
+  restDensity;
+  // CudaBuffers& cb = *as->cudaBuffers;
+  // gpuEstimateRestDensity(cb, restDensity, h2, numParticles);
+#else
   restDensity = EstimateRestDensity(smoothingRadius);
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +84,7 @@ void Particles::InitialiseParticles(int n, float spacing)
     positions.push_back(Vec3{x, y, z});
     predictedPositions.push_back(Vec3{x, y, z});
     velocities.push_back(Vec3{0.0f, 0.0f, 0.0f});
-    densities.push_back(0.0f);
+    //densities.push_back(0.0f);
   }
 }
 
@@ -227,10 +236,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
                  smoothingRadius, numCells1D, activeParticles);
 #else
-    auto t0 = clk::now();
+    //auto t0 = clk::now();
     BuildGrid(smoothingRadius);
-    auto t1 = clk::now();
-    std::cout << "BUILDGRID Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
+    //auto t1 = clk::now();
+    //std::cout << "BUILDGRID Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
 #endif
   }
   {
@@ -264,12 +273,12 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
       gpuClampToBoundaries(cb, predictedPositions.data(), radiusPx, g_fb_w, g_fb_h, activeParticles);
 #else
-      auto t0 = clk::now();
+      //auto t0 = clk::now();
       ParallelFor(activeParticles, [&](int i) {
 	allLambdas[i] = CalculateLambda(i, smoothingRadius);
       });
-      auto t1 = clk::now();
-      std::cout << "CALCULATELAMBDAS Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
+      //auto t1 = clk::now();
+      //std::cout << "CALCULATELAMBDAS Execution time CPU: " << us(t0,t1) / 1000.0f << std::endl;
 
 
       ParallelFor(activeParticles, [&](int i) {
@@ -499,23 +508,41 @@ float Particles::EstimateRestDensity(float smoothingRadius)
 }
 
 // ---------------------------------------------------------------------------
-void Particles::Reset(float smoothingRadius)
+void Particles::Reset(float smoothingRadius, AppState* as)
 {
   positions.clear();
   predictedPositions.clear();
   velocities.clear();
-  densities.clear();
-
-  std::fill(gridCount.begin(),      gridCount.end(),      0);
-  std::fill(neighbourCount.begin(), neighbourCount.end(), 0);
+  
+  //std::fill(gridCount.begin(),      gridCount.end(),      0);
+  //std::fill(neighbourCount.begin(), neighbourCount.end(), 0);
 
   activeParticles = numParticles;
   InitialiseParticles(numParticles, initSpacing);
+
+#ifdef USE_CUDA
+  CudaBuffers &cb = *as->cudaBuffers;
+  cudaMemcpy(cb.positions_d, positions.data(), sizeof(Vec3) * activeParticles,
+             cudaMemcpyHostToDevice);
+  
+  cudaMemcpy(cb.velocities_d, velocities.data(), sizeof(Vec3) * activeParticles,
+             cudaMemcpyHostToDevice);
+  
+  cudaMemcpy(cb.predictedPositions_d, predictedPositions.data(),
+             sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
+  
+  gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
+               smoothingRadius, numCells1D, activeParticles);
+  gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(),
+                     positionsAtLastBuild, smoothingRadius,
+                     skinRadius * skinRadius, numCells1D, activeParticles, true);
+  gpuEstimateRestDensity(cb, &restDensity, smoothingRadius, numParticles);
+#else
   BuildGrid(smoothingRadius);
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
   restDensity = EstimateRestDensity(smoothingRadius);
-
+#endif
   if (tricklerMode) {
     activeParticles = 0;
     nextRecycleIdx  = 0;
@@ -589,7 +616,7 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   positions.clear();          positions.reserve(newParticles);
   predictedPositions.clear(); predictedPositions.reserve(newParticles);
   velocities.clear();         velocities.reserve(newParticles);
-  densities.clear();          densities.reserve(newParticles);
+  //densities.clear();          densities.reserve(newParticles);
 
   allLambdas.resize(newParticles);
   deltas.resize(newParticles);
@@ -611,11 +638,14 @@ void Particles::ResizeParticles(int newParticles, float smoothingRadius,
   BuildGrid(smoothingRadius);
   BuildNeighbours(smoothingRadius);
   positionsAtLastBuild = predictedPositions;
-  restDensity = EstimateRestDensity(smoothingRadius);
+
 
 #ifdef USE_CUDA
   CudaBuffers& cb = *as->cudaBuffers;
   cb.handleCellGridUpdate(numCells1D);
+  gpuEstimateRestDensity(cb, &restDensity, smoothingRadius, numParticles);
+#else
+  restDensity = EstimateRestDensity(smoothingRadius);
 #endif
   
   if (tricklerMode) {

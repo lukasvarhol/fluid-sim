@@ -90,7 +90,7 @@ struct Particles
   void Update(float dt, float smoothingRadius, float radiusPx,
                 const int g_fb_w,
 	      const int g_fb_h, Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders, AppState* as);
-  void Reset(float smoothingRadius);
+  void Reset(float smoothingRadius, AppState* as);
   void ResizeParticles(int newParticles, float smoothingRadius, float spacing, float ox, float oy, float oz, AppState* as);
   void ResetTrickler();
 

@@ -11,7 +11,7 @@
 #include "../particles.h"
 
 float HandleSimulationControl(SimulationControl &simulationControl, 
-			      float dtMeasured, Particles& particles);
+			      float dtMeasured, Particles& particles, AppState* as);
 
 
 

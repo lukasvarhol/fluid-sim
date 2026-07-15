@@ -108,11 +108,13 @@ int main(int argc, char *argv[]) {
                      commit);
       
       std::cout << "filepath: " << filepath << std::endl;
-      Particles particles(profilerParticles, smoothingRadius);
+
 
       SDFCollider colliders[MAX_OBJECTS];
       GridState grid;
       AppState appState;
+
+     Particles particles(profilerParticles, smoothingRadius);
 
       std::vector<Vec3> triangles = LoadOBJTriangles("meshes/SChannel.obj");
       
@@ -278,7 +280,7 @@ int main(int argc, char *argv[]) {
   glfwGetWindowContentScale(window, &xScale, &yScale);
 
   float radiusPx;
-  particles.Reset(smoothingRadius);
+  particles.Reset(smoothingRadius, &appState);
 
   particleMesh.SetupInstanceBuffers(60000); //TODO: refactor out
 
@@ -304,7 +306,7 @@ int main(int argc, char *argv[]) {
 
 
     bool wasReset = simulationControl.isReset;
-    float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles);
+    float dtToSim = HandleSimulationControl(simulationControl, dtMeasured, particles, &appState);
     if (wasReset) {
       if (editorState.resetObjectsOnR)
         loadDefaultScene(editorState, &appState);
