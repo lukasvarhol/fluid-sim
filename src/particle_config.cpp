@@ -3,9 +3,9 @@
 bool  tricklerMode      = false;
 float tricklerSpawnRate = 400.0f;
 float tricklerSpread    = 0.045f;
-float tricklerOriginX   = 0.0f;
+float tricklerOriginX   = 0.1f;
 float tricklerOriginY   = 0.8f;
-float tricklerOriginZ   = 0.0f;
+float tricklerOriginZ   = 0.1f;
 
 float gravity        = -3.5f;
 float xsphC          =  0.1f;
@@ -22,6 +22,6 @@ float initOffsetX      =  0.0f;
 float initOffsetY      = 0.0f;
 float initOffsetZ      = 0.0f;
 float radiusLogical    =  13.0f;
-float smoothingRadius  =  0.07f;
+float smoothingRadius  =  0.065f;
 float energyRetention  = 0.7f;
-unsigned int numParticles = 40000;
+unsigned int numParticles = 30000;

@@ -1,3 +1,4 @@
+#include "cuda_buffers.cuh"
 #include "linear_algebra.h"
 #include "particle_config.h"
 #include "particles.cuh"
@@ -811,4 +812,73 @@ void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRa
 
   printf("rest density: %f\n", *density_h);
 
+}
+
+
+__global__ void vorticityKernel(Vec3* velocities, Vec3* predictedPositions, Vec3* vorticities, int* neighbourData, int* neighbourCount, float smoothingRadius, float vorticityEpsilon, float dt, int activeParticles) {
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (i < activeParticles) {
+    Vec3 omega = {0.0f, 0.0f, 0.0f};
+      const Vec3& vi = velocities[i];
+
+      int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+      for (int k = 0; k < neighbourCount[i]; ++k) {
+	int j = myNeighbours[k];
+	if (j == i) continue;
+
+	Vec3  diff = predictedPositions[i] - predictedPositions[j];
+	float d2   = diff.Dot(diff);
+	if (d2 < 1e-12f || d2 >= (smoothingRadius * smoothingRadius)) return;
+
+	float d     = sqrtf(d2);
+	float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
+	Vec3  gradW = diff * s;
+	Vec3 vij = velocities[j] - vi;
+       
+	omega.x += vij.y * gradW.z - vij.z * gradW.y;
+	omega.y += vij.z * gradW.x - vij.x * gradW.z;
+	omega.z += vij.x * gradW.y - vij.y * gradW.x;
+      }
+      vorticities[i] = omega;
+
+      // Pass 2: apply vorticity confinement force
+      Vec3 eta = {0.0f, 0.0f, 0.0f};
+
+      for (int k = 0; k < neighbourCount[i]; ++k) {
+	int j = myNeighbours[k];
+	if (j == i) return;
+
+	Vec3  diff = predictedPositions[i] - predictedPositions[j];
+	float d2   = diff.Dot(diff);
+	if (d2 < 1e-12f || d2 >= (smoothingRadius * smoothingRadius)) return;
+
+	float d     = sqrtf(d2);
+	float s     = (smoothingRadius - d) * (smoothingRadius - d) / d;
+	Vec3  gradW = diff * s;
+
+	float omegaMag = vorticities[j].Magnitude();
+	eta += gradW * omegaMag;
+      }
+
+      float etaMag = eta.Magnitude();
+      if (etaMag < 1e-6f) return;
+
+      Vec3 N = eta * (1.0f / etaMag);       // location vector
+
+      const Vec3& w = vorticities[i];
+      Vec3 f_vorticity = {
+	N.y * w.z - N.z * w.y,
+	N.z * w.x - N.x * w.z,
+	N.x * w.y - N.y * w.x
+      };
+      velocities[i] += f_vorticity * (vorticityEpsilon * dt);
+  }
+}
+
+void gpuVorticity(CudaBuffers& cb, float smoothingRadius, float vorticityEpsilon, float dt, int activeParticles) {
+  vorticityKernel<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.velocities_d, cb.predictedPositions_d, cb.vorticities_d,
+      cb.neighbourData_d, cb.neighbourCount_d, smoothingRadius,
+      vorticityEpsilon, dt, activeParticles);
 }

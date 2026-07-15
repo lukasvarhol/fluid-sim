@@ -28,6 +28,7 @@ public:
   Vec3 *positionsAtLastBuild_d;
   float *allLambdas_d;
   Vec3 *deltas_d;
+  Vec3* vorticities_d;
   SDFCollider *colliders_d;
   
 

@@ -399,6 +399,10 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   // Pass 1: compute vorticity
   {
     Profiler::Timer timer(VORTICITY, currentFrame, isBenchmarking);
+#ifdef USE_CUDA
+    CudaBuffers& cb = *as->cudaBuffers;
+    gpuVorticity(cb, smoothingRadius, vorticityEpsilon, dt, activeParticles);
+#else
     ParallelFor(activeParticles, [&](int i) {
       Vec3 omega = {0.0f, 0.0f, 0.0f};
       //const Vec3& vi    = newVelocities[i];
@@ -424,13 +428,11 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 	omega.z += vij.x * gradW.y - vij.y * gradW.x;
       }
       vorticity[i] = omega;
-    });
 
-    // Pass 2: apply vorticity confinement force
-    ParallelFor(activeParticles, [&](int i) {
+      // Pass 2: apply vorticity confinement force
       Vec3 eta = {0.0f, 0.0f, 0.0f};
 
-      int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+      //int* myNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
       for (int k = 0; k < neighbourCount[i]; ++k) {
 	int j = myNeighbours[k];
 	if (j == i) continue;
@@ -452,16 +454,16 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 
       Vec3 N = eta * (1.0f / etaMag);       // location vector
 
-      const Vec3& omega = vorticity[i];
+      const Vec3& w = vorticity[i];
       Vec3 f_vorticity = {
-	N.y * omega.z - N.z * omega.y,
-	N.z * omega.x - N.x * omega.z,
-	N.x * omega.y - N.y * omega.x
+	N.y * w.z - N.z * w.y,
+	N.z * w.x - N.x * w.z,
+	N.x * w.y - N.y * w.x
       };
       //newVelocities[i] += f_vorticity * (vorticityEpsilon * dt);
       velocities[i] += f_vorticity * (vorticityEpsilon * dt);
     });
-    //velocities = newVelocities;
+#endif
   }
 }
 
@@ -562,7 +564,7 @@ void Particles::TickTrickler(float dt)
   if (tricklerSpawnRate <= 0.0f) return;
 
   tricklerAccum += dt;
-  const float interval = 1.0f / (tricklerSpawnRate * 100 *  dt);
+  const float interval = 1.0f / (tricklerSpawnRate);
   std::uniform_real_distribution<float> jitter(-tricklerSpread, tricklerSpread);
 
   while (tricklerAccum >= interval) {
@@ -575,11 +577,11 @@ void Particles::TickTrickler(float dt)
       nextRecycleIdx = (nextRecycleIdx + 1) % numParticles;
     }
     Vec3 spawnPos{tricklerOriginX + jitter(rng),
-                  tricklerOriginY + jitter(rng),
+                  tricklerOriginY,
                   tricklerOriginZ + jitter(rng)};
     positions[idx]          = spawnPos;
     predictedPositions[idx] = spawnPos;
-    velocities[idx]         = {0.0f, 0.0f, 0.0f};
+    velocities[idx]         = Vec3{0.0f, 0.0f, 0.0f};
     vorticity[idx]          = {0.0f, 0.0f, 0.0f};
   }
 }

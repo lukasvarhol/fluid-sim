@@ -37,3 +37,5 @@ void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
                   int activeParticles);
 
 void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRadius, int numParticles);
+
+void gpuVorticity(CudaBuffers& cb, float smoothingRadius, float vorticityEpsilon, float dt, int activeParticles);

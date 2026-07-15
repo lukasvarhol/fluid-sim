@@ -56,6 +56,10 @@ CudaBuffers::CudaBuffers(Particles& particles) {
   err = cudaMalloc((void **)&colliders_d, sizeof(SDFCollider) * MAX_OBJECTS);
   printError(err);
 
+  err = cudaMalloc((void **)&vorticities_d,
+                   sizeof(Vec3) * particles.activeParticles);
+  printError(err);
+
   handleCellGridUpdate(particles.numCells1D);
 
  if (blocksPerGridL2 == 1) {
@@ -121,6 +125,8 @@ CudaBuffers::~CudaBuffers() {
   err = cudaFree(deltas_d);
   printError(err);
   err = cudaFree(colliders_d);
+  printError(err);
+  err = cudaFree(vorticities_d);
   printError(err);
 
   if (blocksPerGridL2 == 1 || blocksPerGridL3 == 1) {
