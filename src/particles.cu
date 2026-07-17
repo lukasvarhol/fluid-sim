@@ -1,5 +1,7 @@
 #include "cuda_buffers.cuh"
 #include "linear_algebra.h"
+#include "objects3d/editor_state.h"
+#include "objects3d/sdf_collision.h"
 #include "particle_config.h"
 #include "particles.cuh"
 #include <cstdlib>
@@ -66,30 +68,19 @@ void gravityPredictKernel(Vec3 * __restrict__ positions, Vec3 * __restrict__ vel
   }
 }
 
-void gpuGravityPredict(CudaBuffers& cb, Vec3* positions_h, Vec3* velocities_h, Vec3* predictedPositions_h, float gravity,
+void gpuGravityPredict(CudaBuffers& cb, float gravity,
 		       float mouseStrength, float mouseRadius, Vec3 rayOrigin,
 		       Vec3 rayDir, float dt, int n) {
-
-  size_t size = n * sizeof(Vec3);
-
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
-
   cudaEventRecord(start);
-  
-  cudaMemcpy(cb.positions_d, positions_h, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(cb.velocities_d, velocities_h, size, cudaMemcpyHostToDevice);
 
   gravityPredictKernel<<<ceil(n / 128.0), 128>>>(
-						 cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
-						 mouseStrength, mouseRadius, rayOrigin, rayDir, dt, n);
+      cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
+      mouseStrength, mouseRadius, rayOrigin, rayDir, dt, n);
 
-  // cudaMemcpy(predictedPositions_h, cb.predictedPositions_d, size,
-  //            cudaMemcpyDeviceToHost);
-  
   cudaEventRecord(stop);
-
   cudaEventSynchronize(stop);
   
   cudaEventDestroy(start);
@@ -252,10 +243,9 @@ __global__ void fillGridKernel(int * __restrict__ gridData, int* __restrict__ in
   }
 }
 
-void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
-                  int *gridData_h, float smoothingRadius, int numCells1D,
+void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
                   int activeParticles) {
-
+  
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -375,11 +365,11 @@ void gpuBuildGrid(CudaBuffers &cb, int *gridStart_h, int *gridCount_h,
 
   /* ------ Cleanup ------ */
 
-  cudaMemcpy(gridStart_h, cb.gridStart_d, (numCells + 1) * sizeof(int),
-             cudaMemcpyDeviceToHost);
-  gridStart_h[numCells] = activeParticles;
-  cudaMemcpy(gridData_h, cb.gridData_d, activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(gridCount_h, cb.gridCount_d, size, cudaMemcpyDeviceToHost);
+  // cudaMemcpy(gridStart_h, cb.gridStart_d, (numCells + 1) * sizeof(int),
+  //            cudaMemcpyDeviceToHost);
+  // gridStart_h[numCells] = activeParticles;
+  // cudaMemcpy(gridData_h, cb.gridData_d, activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
+  // cudaMemcpy(gridCount_h, cb.gridCount_d, size, cudaMemcpyDeviceToHost);
 
   cudaEventRecord(stop);
 
@@ -443,44 +433,35 @@ __global__ void needsNeighbourRebuildKernel(Vec3 *predictedPositions,
   }
 }
 
-
-void gpuBuildNeighbours(CudaBuffers &cb, int *neighbourData_h,
-                        int *neighbourCount_h,
-                        std::vector<Vec3> &positionsAtLastBuild_h,
+void gpuBuildNeighbours(CudaBuffers &cb,
                         float smoothingRadius, float skinRadius2,
                         int numCells1D, int activeParticles,
                         bool forceRebuild) {
-  int one = 1;
+  int needsBuild = 0; // this is dumb
   if (forceRebuild) {
-    cudaMemcpy(cb.buildNeighbours_d, &one, sizeof(int), cudaMemcpyHostToDevice);
+    needsBuild = 1;
+    cudaMemcpy(cb.buildNeighbours_d, &needsBuild, sizeof(int), cudaMemcpyHostToDevice);
   } else {
     cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
-    if ((int)positionsAtLastBuild_h.size() < activeParticles)
-      cudaMemcpy(cb.buildNeighbours_d, &one, sizeof(int), cudaMemcpyHostToDevice);
-    else {
-      cudaMemcpy(cb.positionsAtLastBuild_d, positionsAtLastBuild_h.data(),
-		 sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
 
-      needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(
-          cb.predictedPositions_d, cb.positionsAtLastBuild_d,
-          cb.buildNeighbours_d, skinRadius2, activeParticles);
-    }
+    needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(
+        cb.predictedPositions_d, cb.positionsAtLastBuild_d,
+        cb.buildNeighbours_d, skinRadius2, activeParticles);
   }
 
-  int buildNeighbours_h;
-  cudaMemcpy(&buildNeighbours_h, cb.buildNeighbours_d, sizeof(int), cudaMemcpyDeviceToHost);
-  if(buildNeighbours_h == 1) {
+  cudaMemcpy(&needsBuild, cb.buildNeighbours_d, sizeof(int),
+             cudaMemcpyDeviceToHost);
+  // this should be moved to device side. Copying int back and forth is dumb.
+  if(needsBuild == 1) {
     buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
-								  cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
-								  cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
-								  activeParticles);
-  
-    cudaMemcpy(neighbourData_h, cb.neighbourData_d, activeParticles * MAX_NEIGHBOURS * sizeof(int),
-	       cudaMemcpyDeviceToHost);
-    cudaMemcpy(neighbourCount_h, cb.neighbourCount_d,
-               activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
-  }
+        cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
+        cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
+        activeParticles);
 
+
+    cudaMemcpy(cb.positionsAtLastBuild_d, cb.predictedPositions_d,
+               sizeof(Vec3) * activeParticles, cudaMemcpyDeviceToDevice);
+  }
 }
 
 __global__ void calculateLambdasKernel(float *allLambdas,
@@ -532,7 +513,6 @@ void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
                         float restDensity, float smoothingRadius,
                         int activeParticles) {
 
-  
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
@@ -544,15 +524,11 @@ void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
 
   float spiky_coeff_h = -45.0f / (PI * powf(smoothingRadius, 6));
   cudaMemcpyToSymbol(spiky_coeff_d, &spiky_coeff_h, sizeof(float));
-  
+
   calculateLambdasKernel<<<ceil(activeParticles / 128.0), 128>>>(
-								 cb.allLambdas_d, cb.predictedPositions_d, cb.neighbourData_d,
-								 cb.neighbourCount_d, relaxation, restDensity, smoothingRadius,
-								 activeParticles);
-
-  // cudaMemcpy(allLambdas_h, cb.allLambdas_d, sizeof(float) * activeParticles,
-  //            cudaMemcpyDeviceToHost);
-
+      cb.allLambdas_d, cb.predictedPositions_d, cb.neighbourData_d,
+      cb.neighbourCount_d, relaxation, restDensity, smoothingRadius,
+      activeParticles);
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
@@ -607,13 +583,11 @@ void gpuCalculateDeltas(CudaBuffers &cb, float restDensity,
       cb.deltas_d, cb.predictedPositions_d, cb.neighbourData_d,
       cb.neighbourCount_d, cb.allLambdas_d, restDensity, wdq, scorr,
       smoothingRadius, activeParticles);
-  
-
-  // cudaMemcpy(deltas_h, cb.deltas_d, sizeof(Vec3) * activeParticles,
-  //            cudaMemcpyDeviceToHost);
 }
 
-__global__ void clampToBoundariesKernel(Vec3* predictedPositions, float radiusPx, int g_fb_w, int g_fb_h, int activeParticles) {
+__global__ void clampToBoundariesKernel(Vec3 *predictedPositions,
+                                        float radiusPx, int g_fb_w, int g_fb_h,
+                                        int activeParticles) {
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (i < activeParticles) {
@@ -629,11 +603,11 @@ __global__ void clampToBoundariesKernel(Vec3* predictedPositions, float radiusPx
   }
 }
 
-void gpuClampToBoundaries(CudaBuffers& cb, Vec3* predictedPositions_h, float radiusPx, int g_fb_w, int g_fb_h, int activeParticles) {
+void gpuClampToBoundaries(CudaBuffers &cb, float radiusPx, int g_fb_w,
+                          int g_fb_h, int activeParticles) {
   clampToBoundariesKernel<<<ceil(activeParticles / 128.0), 128>>>(
-								  cb.predictedPositions_d, radiusPx, g_fb_w, g_fb_h, activeParticles);
+      cb.predictedPositions_d, radiusPx, g_fb_w, g_fb_h, activeParticles);
 }
-
 
 __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
                                          SDFCollider *colliders, int activeParticles) {
@@ -664,21 +638,46 @@ __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
   }
 }
 
-void gpuProjectParticleSDF(CudaBuffers &cb, Vec3 *predictedPositions_h,
-                           Vec3 *velocities_h, int activeParticles) {
+// __global__ void gpuProjectParticleTri(TriCollider* triColliders, Vec3* predictedPositions, Vec3* closestPointsOut, int  activeParticles){
+ 
+//   int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+//   if (i < activeParticles) {
+//     for (size_t j{}; j < MAX_OBJECTS; ++j) {
+//       float minDistanceSquared = ::std::numeric_limits<float>::infinity();
+//       Vec3 closestPoint = Vec3{0.0f, 0.0f, 0.0f};
+
+//       for (size_t k{}; k + 2 < triColliders[j].triangles.size(); k += 3) {
+//         Vec3 q = ClosestPtPointTriangle(
+//             predictedPositions[i], triColliders[j].triangles[k],
+//             triColliders[j].triangles[k + 1], triColliders[j].triangles[k + 2]);
+
+//         Vec3 diff = predictedPositions[j] - q;
+//         float distanceSquared = diff.Dot(diff);
+//         if (distanceSquared < minDistanceSquared) {
+//           minDistanceSquared = distanceSquared;
+// 	  closestPoint = q;
+// 	}
+//       }
+//       closestPointsOut[j] = closestPoint;
+//     }
+//   }
+// }
+
+void gpuProjectParticleSDF(CudaBuffers &cb, int activeParticles) {
   projectParticleSDFKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.colliders_d, activeParticles);
-  // cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
-  //            activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
-  // cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
-  //            cudaMemcpyDeviceToHost);
-
 }
 
-// TODO: projectParticleTri
+void gpuProjectParticleTri(CudaBuffers &cb, Vec3 *predictedPositions_h,
+                           Vec3 *closestPoints_h, int activeParticles) {
+  // cant't be bothered to do this now...
+  return;
+}
 
 __global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
-				     Vec3 *velocities, float dt, float mSpeed, int activeParticles) {
+                                     Vec3 *velocities, float dt, float mSpeed,
+                                     int activeParticles) {
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (i < activeParticles) {
@@ -691,21 +690,24 @@ __global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
   }
 }
 
-void gpuUpdateVelocities(CudaBuffers &cb, Vec3* predictedPositions_h, Vec3 *positions_h, Vec3 *velocities_h,
+void gpuUpdateVelocities(CudaBuffers &cb, Vec3 *positions_h,
                          float dt, float mSpeed, int activeParticles) {
   updateVelocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
-							       cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt, mSpeed,
-							       activeParticles);
+      cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt, mSpeed,
+      activeParticles);
+
+  // this copy can be reomved once OpenGL interop is done.
   cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
-             cudaMemcpyDeviceToHost);
-  cudaMemcpy(predictedPositions_h, cb.predictedPositions_d,
-             activeParticles * sizeof(Vec3), cudaMemcpyDeviceToHost);
+             cudaMemcpyDeviceToHost); 
 
 }
 
 
 
-__global__ void viscocityKernel(Vec3* predictedPositions, Vec3* velocities, int* neighbourData, int* neighbourCount, float h2, float xsphC, int activeParticles) {
+__global__ void viscocityKernel(Vec3 *predictedPositions, Vec3 *velocities,
+                                int *neighbourData, int *neighbourCount,
+                                float h2, float xsphC, int activeParticles) {
+  
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   if (i < activeParticles) {
@@ -745,11 +747,16 @@ void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
   viscocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.neighbourData_d,
       cb.neighbourCount_d, h2, xsphC, activeParticles);
+  // need velocty copy for colour rendering - remove once OpenGL interop implemented.
   cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
-             cudaMemcpyDeviceToHost);
+              cudaMemcpyDeviceToHost);
 }
 
-__global__ void estimateRestDensityKernel(float* density, Vec3* predictedPositions, int* neighbourData, int* neighbourCount, int c, float h2) {
+__global__ void estimateRestDensityKernel(float *density,
+                                          Vec3 *predictedPositions,
+                                          int *neighbourData,
+                                          int *neighbourCount, int c,
+                                          float h2) {
   int i = threadIdx.x + blockDim.x * blockIdx.x;
 
   int currentNeighbourCount = neighbourCount[c];
@@ -768,7 +775,9 @@ __global__ void estimateRestDensityKernel(float* density, Vec3* predictedPositio
   }
 }
 
-void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRadius, int numParticles) {
+// only runs on initialisation and reset - copies are fine.
+void gpuEstimateRestDensity(CudaBuffers &cb, float *density_h,
+                            float smoothingRadius, int numParticles) {
   int centre = numParticles / 2;
   float *density_d;
 
@@ -799,8 +808,9 @@ void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRa
     exit(EXIT_FAILURE);
   }
 
-
-  estimateRestDensityKernel<<<ceil(MAX_NEIGHBOURS/32.0), 32>>>(density_d, cb.predictedPositions_d, cb.neighbourData_d, cb.neighbourCount_d, centre, h2);
+  estimateRestDensityKernel<<<ceil(MAX_NEIGHBOURS / 32.0), 32>>>(
+      density_d, cb.predictedPositions_d, cb.neighbourData_d,
+      cb.neighbourCount_d, centre, h2);
 
   err = cudaMemcpy(density_h, density_d, sizeof(float), cudaMemcpyDeviceToHost);
   if (err != cudaSuccess) {
@@ -811,11 +821,14 @@ void gpuEstimateRestDensity(CudaBuffers& cb, float* density_h, float smoothingRa
   cudaFree(density_d);
 
   printf("rest density: %f\n", *density_h);
-
 }
 
 
-__global__ void vorticityKernel(Vec3* velocities, Vec3* predictedPositions, Vec3* vorticities, int* neighbourData, int* neighbourCount, float smoothingRadius, float vorticityEpsilon, float dt, int activeParticles) {
+__global__ void vorticityKernel(Vec3 *velocities, Vec3 *predictedPositions,
+                                Vec3 *vorticities, int *neighbourData,
+                                int *neighbourCount, float smoothingRadius,
+                                float vorticityEpsilon, float dt,
+                                int activeParticles) {
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (i < activeParticles) {
@@ -882,3 +895,4 @@ void gpuVorticity(CudaBuffers& cb, float smoothingRadius, float vorticityEpsilon
       cb.neighbourData_d, cb.neighbourCount_d, smoothingRadius,
       vorticityEpsilon, dt, activeParticles);
 }
+

@@ -200,7 +200,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     oldPositions = positions;
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    gpuGravityPredict(cb, positions.data(), velocities.data(), predictedPositions.data(), gravity,
+    gpuGravityPredict(cb, gravity,
                    mouseStrength, mouseRadius, rayOrigin, rayDir, dt,
                    activeParticles); 
 #else
@@ -233,8 +233,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(BUILD_GRID, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
-                 smoothingRadius, numCells1D, activeParticles);
+    gpuBuildGrid(cb, smoothingRadius, numCells1D, activeParticles);
 #else
     //auto t0 = clk::now();
     BuildGrid(smoothingRadius);
@@ -246,8 +245,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(BUILD_NEIGHBOURS, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(), positionsAtLastBuild,
-		       smoothingRadius, skinRadius * skinRadius, numCells1D, activeParticles);
+    gpuBuildNeighbours(cb, smoothingRadius, skinRadius * skinRadius, numCells1D,
+                       activeParticles);
 #else
     if (NeedsNeighbourRebuild()) {
       // auto t0 = clk::now();
@@ -271,7 +270,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       gpuCalculateDeltas(cb, restDensity, wDq, scorrCoefficient,
                          smoothingRadius, activeParticles);
 
-      gpuClampToBoundaries(cb, predictedPositions.data(), radiusPx, g_fb_w, g_fb_h, activeParticles);
+      gpuClampToBoundaries(cb, radiusPx, g_fb_w, g_fb_h, activeParticles);
 #else
       //auto t0 = clk::now();
       ParallelFor(activeParticles, [&](int i) {
@@ -315,8 +314,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
         Profiler::Timer timer(COLLISION_SDF, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
 	CudaBuffers& cb = *as->cudaBuffers;
-	gpuProjectParticleSDF(cb, predictedPositions.data(),
-			      velocities.data(), activeParticles);
+	gpuProjectParticleSDF(cb, activeParticles);
 #else
         ParallelFor(activeParticles, [&](int i) {
 	  for (int j{}; j < MAX_OBJECTS; ++j)
@@ -339,7 +337,7 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
     Profiler::Timer timer(VELOCITY_UPDATE, currentFrame, isBenchmarking);
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    gpuUpdateVelocities(cb, predictedPositions.data(), positions.data(), velocities.data(), dt, maxSpeed, activeParticles);
+    gpuUpdateVelocities(cb, positions.data(), dt, maxSpeed, activeParticles);
 #else
     ParallelFor(activeParticles, [&](int i) {
       velocities[i] = (predictedPositions[i] - positions[i]) / dt;
@@ -375,8 +373,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 	float d2   = diff.Dot(diff);
 	if (d2 >= h2)
 	  continue;
-  
-	float sq = h2 - d2;
+
+        float sq = h2 - d2;
 	float w  = poly6 * sq * sq * sq;
 	xsph += (velocities[j] - velocities[i]) * w;
 	wSum += w;
@@ -532,11 +530,9 @@ void Particles::Reset(float smoothingRadius, AppState* as)
   
   cudaMemcpy(cb.predictedPositions_d, predictedPositions.data(),
              sizeof(Vec3) * activeParticles, cudaMemcpyHostToDevice);
-  
-  gpuBuildGrid(cb, gridStart.data(), gridCount.data(), gridData.data(),
-               smoothingRadius, numCells1D, activeParticles);
-  gpuBuildNeighbours(cb, neighbourData.data(), neighbourCount.data(),
-                     positionsAtLastBuild, smoothingRadius,
+
+  gpuBuildGrid(cb, smoothingRadius, numCells1D, activeParticles);
+  gpuBuildNeighbours(cb, smoothingRadius,
                      skinRadius * skinRadius, numCells1D, activeParticles, true);
   gpuEstimateRestDensity(cb, &restDensity, smoothingRadius, numParticles);
 #else
@@ -564,7 +560,7 @@ void Particles::TickTrickler(float dt)
   if (tricklerSpawnRate <= 0.0f) return;
 
   tricklerAccum += dt;
-  const float interval = 1.0f / (tricklerSpawnRate);
+  const float interval = 1.0f / (tricklerSpawnRate * 100 * dt);
   std::uniform_real_distribution<float> jitter(-tricklerSpread, tricklerSpread);
 
   while (tricklerAccum >= interval) {
@@ -577,7 +573,7 @@ void Particles::TickTrickler(float dt)
       nextRecycleIdx = (nextRecycleIdx + 1) % numParticles;
     }
     Vec3 spawnPos{tricklerOriginX + jitter(rng),
-                  tricklerOriginY,
+		  tricklerOriginY - tricklerSpread,
                   tricklerOriginZ + jitter(rng)};
     positions[idx]          = spawnPos;
     predictedPositions[idx] = spawnPos;

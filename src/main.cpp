@@ -282,7 +282,8 @@ int main(int argc, char *argv[]) {
   float radiusPx;
   particles.Reset(smoothingRadius, &appState);
 
-  particleMesh.SetupInstanceBuffers(60000); //TODO: refactor out
+  // Really really stupd. Get this fixed.
+  particleMesh.SetupInstanceBuffers(particles.numParticles); //TODO: refactor out
 
   double lastTime = glfwGetTime();
 
