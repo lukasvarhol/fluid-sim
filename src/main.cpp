@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
   float radiusPx;
   particles.Reset(smoothingRadius, &appState);
 
-  // Really really stupd. Get this fixed.
+  // Really really stupid. Get this fixed.
   particleMesh.SetupInstanceBuffers(particles.numParticles); //TODO: refactor out
 
   double lastTime = glfwGetTime();
@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
     cellGridRef.visible = editorState.showGrid;
 
     Render(cameraState, viewport, particles, particleMesh,
-	   particleShader, sceneObjects, radiusLogical, xScale);
+	   particleShader, sceneObjects, radiusLogical, xScale, &appState);
 
     // Render solid RG objects, optional ghost preview, and cell overlays
     {

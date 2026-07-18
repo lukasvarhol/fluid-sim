@@ -5,14 +5,16 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
             Particles &particles, ParticleMesh &particleMesh,
             unsigned int particleShader,
             const std::vector<SceneObject>& sceneObjects,
-            float radiusLogical, float xScale) {
+            float radiusLogical, float xScale, AppState* as) {
 
-
+  int n = particles.activeParticles;
+#ifdef USE_CUDA
+#else
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   float radiusPx = radiusLogical * xScale;
 
-  int n = particles.activeParticles;
+
   std::vector<float> posData(n * 3);
   std::vector<float> velData(n * 3);
   for (int i = 0; i < n; ++i)
@@ -26,6 +28,7 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
       velData[3 * i + 2] = particles.velocities[i].z;
     }
 
+#endif
   glUseProgram(particleShader);
    
   Mat4 proj = Perspective(45.0f * PI / 180.0f, (float)viewport.screenWidth / viewport.screenHeight,
@@ -41,7 +44,13 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
 
   glUniform3f(glGetUniformLocation(particleShader, "lightDir"), 0.6f, 0.8f, 1.0f);
 
+#ifdef USE_CUDA
+  
+  particleMesh.gpuUpdateInstanceData(as->cudaBuffers->positions_d, as->cudaBuffers->velocities_d, n);
+#else
   particleMesh.UpdateInstanceData(posData, velData);
+#endif
+
   particleMesh.DrawInstanced(n);
 
   for (const auto& obj : sceneObjects) {

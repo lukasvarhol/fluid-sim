@@ -2,6 +2,7 @@
 #include "linear_algebra.h"
 #include "objects3d/editor_state.h"
 #include <cuda_runtime.h>
+#include <driver_types.h>
 
 #define BLOCK_SIZE 256
 
@@ -15,7 +16,8 @@ public:
   ~CudaBuffers();
   void printError(const cudaError_t err) const;
   void handleCellGridUpdate(int numCells1D);
-  
+
+
   Vec3 *positions_d;
   Vec3 *velocities_d;
   Vec3 *predictedPositions_d;

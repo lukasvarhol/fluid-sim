@@ -364,13 +364,6 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
   }
 
   /* ------ Cleanup ------ */
-
-  // cudaMemcpy(gridStart_h, cb.gridStart_d, (numCells + 1) * sizeof(int),
-  //            cudaMemcpyDeviceToHost);
-  // gridStart_h[numCells] = activeParticles;
-  // cudaMemcpy(gridData_h, cb.gridData_d, activeParticles * sizeof(int), cudaMemcpyDeviceToHost);
-  // cudaMemcpy(gridCount_h, cb.gridCount_d, size, cudaMemcpyDeviceToHost);
-
   cudaEventRecord(stop);
 
   cudaEventSynchronize(stop);
@@ -384,8 +377,10 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
 
 __global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
                                       Vec3 *predictedPositions, int *gridStart,
-                                      int *gridData, float smoothingRadius, int numCells1D,
-                                      int activeParticles) {
+                                      int *gridData, float smoothingRadius,
+                                      int numCells1D, int activeParticles,
+                                      int *buildNeighbours) {
+  if (*buildNeighbours == 0) return;
   int i = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (i < activeParticles) {
@@ -437,31 +432,22 @@ void gpuBuildNeighbours(CudaBuffers &cb,
                         float smoothingRadius, float skinRadius2,
                         int numCells1D, int activeParticles,
                         bool forceRebuild) {
-  int needsBuild = 0; // this is dumb
   if (forceRebuild) {
-    needsBuild = 1;
+    int needsBuild = 1;
     cudaMemcpy(cb.buildNeighbours_d, &needsBuild, sizeof(int), cudaMemcpyHostToDevice);
   } else {
-    cudaMemset(cb.buildNeighbours_d, 0, sizeof(int));
-
     needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(
         cb.predictedPositions_d, cb.positionsAtLastBuild_d,
         cb.buildNeighbours_d, skinRadius2, activeParticles);
   }
 
-  cudaMemcpy(&needsBuild, cb.buildNeighbours_d, sizeof(int),
-             cudaMemcpyDeviceToHost);
-  // this should be moved to device side. Copying int back and forth is dumb.
-  if(needsBuild == 1) {
     buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
         cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
         cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
-        activeParticles);
-
+        activeParticles, cb.buildNeighbours_d);
 
     cudaMemcpy(cb.positionsAtLastBuild_d, cb.predictedPositions_d,
                sizeof(Vec3) * activeParticles, cudaMemcpyDeviceToDevice);
-  }
 }
 
 __global__ void calculateLambdasKernel(float *allLambdas,

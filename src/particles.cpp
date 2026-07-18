@@ -555,6 +555,8 @@ float Particles::CalculateDistance(Vec3 a, Vec3 b)
 }
 
 // ---------------------------------------------------------------------------
+
+// this needs to write to device addresses. Too bad!
 void Particles::TickTrickler(float dt)
 {
   if (tricklerSpawnRate <= 0.0f) return;

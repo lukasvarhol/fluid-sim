@@ -11,4 +11,4 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
             Particles &particles, ParticleMesh &particleMesh,
             unsigned int particleShader,
             const std::vector<SceneObject>& sceneObjects,
-            float radiusLogical, float xScale);
+            float radiusLogical, float xScale, AppState* as);
