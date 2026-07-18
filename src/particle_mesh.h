@@ -18,14 +18,18 @@ public:
   void SetupInstanceBuffers(int num_particles);
   void UpdateInstanceData(const std::vector<float> &positions,
                           const std::vector<float> &velocities);
+#ifdef USE_CUDA
   void gpuUpdateInstanceData(Vec3 *positions_d, Vec3 *velocities_d,
                              int numParticles);
+#endif
   void DrawInstanced(int num_particles);
     
 
 private:
   unsigned int VAO, VBO, EBO;
   GLuint instancePosVBO, instanceVelVBO;
+#ifdef USE_CUDA
   cudaGraphicsResource *velocitiesCudaResource, *positionsCudaResource;
+#endif
   int vertexCount;
 };

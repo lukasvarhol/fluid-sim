@@ -8,9 +8,9 @@ void Render(const CameraState &cameraState, const Viewport &viewport,
             float radiusLogical, float xScale, AppState* as) {
 
   int n = particles.activeParticles;
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #ifdef USE_CUDA
 #else
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   float radiusPx = radiusLogical * xScale;
 

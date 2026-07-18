@@ -695,7 +695,7 @@ __global__ void viscocityKernel(Vec3 *predictedPositions, Vec3 *velocities,
                                 float h2, float xsphC, int activeParticles) {
   
   int i = threadIdx.x + blockDim.x * blockIdx.x;
-
+  float maxDv = 0.2f;
   if (i < activeParticles) {
     Vec3 xsph = {0.0f, 0.0f, 0.0f};
     float wSum = 0.0f;
