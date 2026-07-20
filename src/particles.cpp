@@ -188,9 +188,14 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
 		       const int g_fb_w, const int g_fb_h,
 		       Vec3 rayOrigin, Vec3 rayDir, float mouseStrength, SDFCollider* colliders, AppState* as)
 {
-  if (tricklerMode)
-    TickTrickler(dt);
-
+  if (tricklerMode){
+#ifdef USE_CUDA
+    CudaBuffers& cb = *as->cudaBuffers;
+    TickTrickler(cb.positions_d, cb.predictedPositions_d, cb.velocities_d, cb.vorticities_d, dt);
+#else
+    TickTrickler(positions.data(), predictedPositions.data(), velocities.data(), vorticity.data(), dt);
+#endif
+  }
   const float mouseRadius  = mouseStrength > 0.0f ? pushRadius : pullRadius;
   const float mouseRadius2 = mouseRadius * mouseRadius;
 
@@ -557,7 +562,7 @@ float Particles::CalculateDistance(Vec3 a, Vec3 b)
 // ---------------------------------------------------------------------------
 
 // this needs to write to device addresses. Too bad!
-void Particles::TickTrickler(float dt)
+void Particles::TickTrickler(Vec3* positions, Vec3* predictedPositions, Vec3* velocities, Vec3* vorticities, float dt)
 {
   if (tricklerSpawnRate <= 0.0f) return;
 
@@ -575,12 +580,21 @@ void Particles::TickTrickler(float dt)
       nextRecycleIdx = (nextRecycleIdx + 1) % numParticles;
     }
     Vec3 spawnPos{tricklerOriginX + jitter(rng),
-		  tricklerOriginY - tricklerSpread,
+                  tricklerOriginY - tricklerSpread,
                   tricklerOriginZ + jitter(rng)};
+#ifdef USE_CUDA
+    cudaMemcpy(&positions[idx], &spawnPos, sizeof(Vec3),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(&predictedPositions[idx], &spawnPos, sizeof(Vec3),
+               cudaMemcpyHostToDevice);
+    cudaMemset(&velocities[idx], 0, sizeof(Vec3));
+    cudaMemset(&vorticities[idx], 0, sizeof(Vec3));
+#else
     positions[idx]          = spawnPos;
     predictedPositions[idx] = spawnPos;
     velocities[idx]         = Vec3{0.0f, 0.0f, 0.0f};
-    vorticity[idx]          = {0.0f, 0.0f, 0.0f};
+    vorticities[idx]          = {0.0f, 0.0f, 0.0f};
+#endif
   }
 }
 

@@ -111,7 +111,7 @@ private:
   float CalculateLambda(size_t particleIdx, float smoothingRadius);
   float EstimateRestDensity(float smoothingRadius);
   bool  NeedsNeighbourRebuild();
-  void  TickTrickler(float dt);
+  void  TickTrickler(Vec3* positions, Vec3* predictedPositions, Vec3* velocities, Vec3* vorticities, float dt);
 };
 
 DEVICE_CALLABLE

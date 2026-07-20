@@ -683,8 +683,8 @@ void gpuUpdateVelocities(CudaBuffers &cb, Vec3 *positions_h,
       activeParticles);
 
   // this copy can be reomved once OpenGL interop is done.
-  cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
-             cudaMemcpyDeviceToHost); 
+  // cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
+  //            cudaMemcpyDeviceToHost); 
 
 }
 
@@ -734,8 +734,8 @@ void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
       cb.predictedPositions_d, cb.velocities_d, cb.neighbourData_d,
       cb.neighbourCount_d, h2, xsphC, activeParticles);
   // need velocty copy for colour rendering - remove once OpenGL interop implemented.
-  cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
-              cudaMemcpyDeviceToHost);
+  // cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
+  //             cudaMemcpyDeviceToHost);
 }
 
 __global__ void estimateRestDensityKernel(float *density,
