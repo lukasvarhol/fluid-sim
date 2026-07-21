@@ -67,18 +67,17 @@ void ParticleMesh::SetupInstanceBuffers(int num_particles){
     glVertexAttribDivisor(2, 1);
 }
 
-void ParticleMesh::UpdateInstanceData(const std::vector<float>& positions, const std::vector<float>& velocities){
+void ParticleMesh::UpdateInstanceData(const std::vector<Vec3>& positions, const std::vector<Vec3>& velocities){
     glBindBuffer(GL_ARRAY_BUFFER, instancePosVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(float), positions.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, positions.size() * sizeof(Vec3), positions.data());
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceVelVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, velocities.size() * sizeof(float), velocities.data());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, velocities.size() * sizeof(Vec3), velocities.data());
 }
 
 #ifdef USE_CUDA
 void ParticleMesh::gpuUpdateInstanceData(Vec3 *positions_d, Vec3 *velocities_d,
                                          int numParticles) {
-
   cudaError_t err = cudaGraphicsMapResources(1, &positionsCudaResource, 0);
   if (err != cudaSuccess) printf("map pos failed: %s\n", cudaGetErrorString(err));
   err = cudaGraphicsMapResources(1, &velocitiesCudaResource, 0);

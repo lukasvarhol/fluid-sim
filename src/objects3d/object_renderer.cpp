@@ -246,7 +246,7 @@ void AppendBox(std::vector<float>& buf,
 
 static Vec3 ObjectColor(RGObjectType type, bool selected)
 {
-  Vec3 c{0.25, 0.4, 0.41};
+  Vec3 c{0.25f, 0.4f, 0.41f};
   if (selected) { c.x = std::min(1.0f, c.x * 1.6f); c.y = std::min(1.0f, c.y * 1.6f); c.z = std::min(1.0f, c.z * 1.6f); }
   return c;
 }

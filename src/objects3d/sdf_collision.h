@@ -89,7 +89,7 @@ DEVICE_CALLABLE
 inline float sdfLChannel(Vec3 p) {
   constexpr float majorRadius = 0.2f;
   constexpr float outerRadius = 0.2f;
-  constexpr float wall = 0.08;
+  constexpr float wall = 0.08f;
   constexpr float innerRadius = outerRadius - wall;
 
   Vec3 pTorus = p - Vec3{-0.2f, 0.0f, 0.2f};
@@ -104,8 +104,8 @@ inline float sdfLChannel(Vec3 p) {
 DEVICE_CALLABLE
 inline float sdfSChannel(Vec3 p) {
   constexpr float outerRadius = 0.2f;
-  constexpr float wall = 0.08;
-  constexpr float halfLength = 0.205;
+  constexpr float wall = 0.08f;
+  constexpr float halfLength = 0.205f;
   constexpr float innerRadius = outerRadius - wall;
 
   float outer = sdfCappedCylinder(p, outerRadius, halfLength);

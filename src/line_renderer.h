@@ -11,5 +11,5 @@ public:
 
 private:
   unsigned int VAO, VBO;
-  int lineCount;
+  size_t lineCount;
 };

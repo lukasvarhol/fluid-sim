@@ -16,8 +16,8 @@ public:
   ParticleMesh();
   ~ParticleMesh();
   void SetupInstanceBuffers(int num_particles);
-  void UpdateInstanceData(const std::vector<float> &positions,
-                          const std::vector<float> &velocities);
+  void UpdateInstanceData(const std::vector<Vec3> &positions,
+                          const std::vector<Vec3> &velocities);
 #ifdef USE_CUDA
   void gpuUpdateInstanceData(Vec3 *positions_d, Vec3 *velocities_d,
                              int numParticles);

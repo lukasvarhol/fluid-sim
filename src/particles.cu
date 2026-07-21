@@ -733,9 +733,6 @@ void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
   viscocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.neighbourData_d,
       cb.neighbourCount_d, h2, xsphC, activeParticles);
-  // need velocty copy for colour rendering - remove once OpenGL interop implemented.
-  // cudaMemcpy(velocities_h, cb.velocities_d, activeParticles * sizeof(Vec3),
-  //             cudaMemcpyDeviceToHost);
 }
 
 __global__ void estimateRestDensityKernel(float *density,

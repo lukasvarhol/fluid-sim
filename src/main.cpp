@@ -65,7 +65,9 @@ std::vector<Vec3> LoadOBJTriangles(const std::string &path) {
 
 int main(int argc, char *argv[]) {
   if (argc >= 2) {
-    if (argc != 16 ) printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b cpu -p 10000 -f 2000 -sdf 10 -collision sdf -r 3\n");
+    if (argc != 16)
+      printf("Incorrect usage: ./fluid-sim --benchmark -c xyz123 -b gpu -p "
+             "10000 -f 2000 -sdf 10 -collision sdf -r 3\n");
     else {
       isBenchmarking = true;
       std::string commit = "";

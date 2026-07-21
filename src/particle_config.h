@@ -1,4 +1,5 @@
 #pragma once
+#include "linear_algebra.h"
 // mouse interaction
 extern float pushStrength;
 extern float pullStrength;

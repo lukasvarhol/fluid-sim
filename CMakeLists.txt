@@ -11,8 +11,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---- Core library (simulation / math only) ----
 add_library(
   fluid_core
-  src/particles.cu
-  src/cuda_buffers.cu
   src/particles.cpp
   src/linear_algebra.h
   src/cell.h
@@ -55,6 +53,8 @@ target_include_directories(fluid_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/imgui/backends
   ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+option(USE_CUDA "..." ON)
 include(CheckLanguage)
 if(USE_CUDA)
   check_language(CUDA)
@@ -66,6 +66,7 @@ if(USE_CUDA)
       target_link_libraries(fluid_core PUBLIC CUDA::cudart)
       target_compile_definitions(fluid_core PUBLIC USE_CUDA)
       target_compile_options(fluid_core PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)
+      target_sources(fluid_core PRIVATE src/particles.cu src/cuda_buffers.cu)
     endif()
   else()
     message(STATUS "No CUDA support")

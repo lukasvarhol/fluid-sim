@@ -1,7 +1,10 @@
 #include "particles.h"
-#include "cuda_buffers.cuh"
 #include "particle_config.h"
+
+#ifdef USE_CUDA
+#include "cuda_buffers.cuh"
 #include "particles.cuh"
+#endif
 
 #include <chrono>
 #include <cmath>
