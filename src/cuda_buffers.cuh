@@ -6,6 +6,27 @@
 
 #define BLOCK_SIZE 256
 
+#define HANDLE_ERROR(call){check((call), #call, __FILE__, __LINE__); }
+inline void check(cudaError_t code, const char* function, const char *file, int line,
+                  bool abort = false) {
+  if (code != cudaSuccess) {
+    printf("CUDA runtime error at: %s : %d\n", file, line);
+    printf("%s : %s\n", cudaGetErrorString(code), function);
+    if (abort)
+      exit(code);
+  }
+}
+
+#define CUDA_CHECK_LAST() checkLast(__FILE__, __LINE__)
+inline void checkLast(const char *file, int line) {
+  cudaError_t const err{cudaGetLastError()};
+  if (err != cudaSuccess) {
+    printf("CUDA runtime error at: %s : %d\n", file, line);
+    printf("%s\n", cudaGetErrorString(err));
+  }
+}
+
+
 struct Particles;
 
 class CudaBuffers {

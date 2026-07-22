@@ -44,9 +44,9 @@ void ParticleMesh::SetupInstanceBuffers(int num_particles){
                  GL_DYNAMIC_DRAW);
 
 #ifdef USE_CUDA
-    cudaError_t err = cudaGraphicsGLRegisterBuffer(
-        &positionsCudaResource, instancePosVBO, cudaGraphicsRegisterFlagsNone);
-    if (err != cudaSuccess) printf("register pos failed: %s\n", cudaGetErrorString(err));
+    HANDLE_ERROR(cudaGraphicsGLRegisterBuffer(
+        &positionsCudaResource, instancePosVBO, cudaGraphicsRegisterFlagsNone));
+
 #endif
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3), (void*)0);
     glEnableVertexAttribArray(1);
@@ -58,9 +58,9 @@ void ParticleMesh::SetupInstanceBuffers(int num_particles){
     glBufferData(GL_ARRAY_BUFFER, num_particles * sizeof(Vec3), nullptr,
                  GL_DYNAMIC_DRAW);
 #ifdef USE_CUDA
-    err = cudaGraphicsGLRegisterBuffer(&velocitiesCudaResource, instanceVelVBO,
-                                       cudaGraphicsRegisterFlagsNone);
-    if (err != cudaSuccess) printf("register vel failed: %s\n", cudaGetErrorString(err));
+    HANDLE_ERROR(cudaGraphicsGLRegisterBuffer(&velocitiesCudaResource,
+                                              instanceVelVBO,
+                                              cudaGraphicsRegisterFlagsNone));
 #endif
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3), (void*)0);
     glEnableVertexAttribArray(2);
@@ -78,23 +78,21 @@ void ParticleMesh::UpdateInstanceData(const std::vector<Vec3>& positions, const 
 #ifdef USE_CUDA
 void ParticleMesh::gpuUpdateInstanceData(Vec3 *positions_d, Vec3 *velocities_d,
                                          int numParticles) {
-  cudaError_t err = cudaGraphicsMapResources(1, &positionsCudaResource, 0);
-  if (err != cudaSuccess) printf("map pos failed: %s\n", cudaGetErrorString(err));
-  err = cudaGraphicsMapResources(1, &velocitiesCudaResource, 0);
-  if (err != cudaSuccess)
-    printf("map vel failed: %s\n", cudaGetErrorString(err));
+  HANDLE_ERROR(cudaGraphicsMapResources(1, &positionsCudaResource, 0));
+  HANDLE_ERROR(cudaGraphicsMapResources(1, &velocitiesCudaResource, 0));
   
   Vec3* mappedPos;
   Vec3* mappedVel;
   size_t num_bytes;
-  cudaGraphicsResourceGetMappedPointer((void**)&mappedPos, &num_bytes, positionsCudaResource);
-  cudaGraphicsResourceGetMappedPointer((void**)&mappedVel, &num_bytes, velocitiesCudaResource);
+  HANDLE_ERROR(cudaGraphicsResourceGetMappedPointer((void**)&mappedPos, &num_bytes, positionsCudaResource));
+  HANDLE_ERROR(cudaGraphicsResourceGetMappedPointer((void**)&mappedVel, &num_bytes, velocitiesCudaResource));
 
-  cudaMemcpy(mappedPos, positions_d, numParticles * sizeof(Vec3), cudaMemcpyDeviceToDevice);
-  cudaMemcpy(mappedVel, velocities_d, numParticles * sizeof(Vec3), cudaMemcpyDeviceToDevice);
+  HANDLE_ERROR(cudaMemcpy(mappedPos, positions_d, numParticles * sizeof(Vec3), cudaMemcpyDeviceToDevice));
+  HANDLE_ERROR(cudaMemcpy(mappedVel, velocities_d, numParticles * sizeof(Vec3), cudaMemcpyDeviceToDevice));
 
-  cudaGraphicsUnmapResources(1, &positionsCudaResource, 0);
-  cudaGraphicsUnmapResources(1, &velocitiesCudaResource, 0);
+  HANDLE_ERROR(cudaGraphicsUnmapResources(1, &positionsCudaResource, 0));
+  HANDLE_ERROR(cudaGraphicsUnmapResources(1, &velocitiesCudaResource, 0));
+  HANDLE_ERROR(cudaDeviceSynchronize()); 
 }
 #endif
 
@@ -105,8 +103,8 @@ void ParticleMesh::DrawInstanced(int num_particles) {
 
 ParticleMesh::~ParticleMesh() {
 #ifdef USE_CUDA
-  cudaGraphicsUnregisterResource(positionsCudaResource);
-  cudaGraphicsUnregisterResource(velocitiesCudaResource);
+  HANDLE_ERROR(cudaGraphicsUnregisterResource(positionsCudaResource));
+  HANDLE_ERROR(cudaGraphicsUnregisterResource(velocitiesCudaResource));
 #endif
   glDeleteVertexArrays(1, &VAO);
   glDeleteBuffers(1, &VBO);

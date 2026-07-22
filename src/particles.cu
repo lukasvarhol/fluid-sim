@@ -15,6 +15,7 @@
 __constant__ float poly6_coeff_d;
 __constant__ float spiky_coeff_d;
 
+
 /*******************************************************************************
  * @brief Gravity and mouse interaction kernel.
  *
@@ -72,19 +73,24 @@ void gpuGravityPredict(CudaBuffers& cb, float gravity,
 		       float mouseStrength, float mouseRadius, Vec3 rayOrigin,
 		       Vec3 rayDir, float dt, int n) {
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start);
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+  HANDLE_ERROR(cudaEventRecord(start));
 
   gravityPredictKernel<<<ceil(n / 128.0), 128>>>(
       cb.positions_d, cb.velocities_d, cb.predictedPositions_d, gravity,
       mouseStrength, mouseRadius, rayOrigin, rayDir, dt, n);
+  CUDA_CHECK_LAST();
 
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
+  HANDLE_ERROR(cudaEventRecord(stop));
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuGravityPredict Execution time: %f miliseconds \n", miliseconds);
   
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 /*******************************************************************************
@@ -255,124 +261,89 @@ void gpuBuildGrid(CudaBuffers &cb, float smoothingRadius, int numCells1D,
   int numCells = numCells1D * numCells1D * numCells1D;
   size_t size = numCells * sizeof(int);
 
-  cudaMemset(cb.gridCount_d, 0, numCells * sizeof(int));
+  HANDLE_ERROR(cudaMemset(cb.gridCount_d, 0, numCells * sizeof(int)));
 
   /* ------ Phase 1: assign particle to cell ------ */
   particleToCellKernel<<<ceil(activeParticles / 384.0), 384>>>(
       cb.predictedPositions_d, cb.gridCount_d, smoothingRadius, numCells1D,
       activeParticles);
+  CUDA_CHECK_LAST();
   
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
-  }
-
-  err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
-  }
+  HANDLE_ERROR(cudaDeviceSynchronize());
 
   /* ------ Phase 2: Parallel Prefix Sum ------ */
 
   if (cb.blocksPerGridL1 == 1) {
-    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, cb.gridCount_d,
-						   numCells, NULL);
-    cudaDeviceSynchronize();
+    scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(
+        cb.gridStart_d, cb.gridCount_d, numCells, NULL);
+    CUDA_CHECK_LAST();
+    
+    HANDLE_ERROR(cudaDeviceSynchronize());
   } else if (cb.blocksPerGridL2 == 1) {
 
     scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(
         cb.gridStart_d, cb.gridCount_d, numCells, cb.sumsL1_d);
-
-    
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
-    }
-
-    err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
-    }
+    CUDA_CHECK_LAST();
 
     scanKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(cb.incrL1_d, cb.sumsL1_d,
                                                    cb.blocksPerGridL1, NULL);
+    CUDA_CHECK_LAST();
 
-    
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
-    }
+    uniformAddKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d,
+                                                         numCells, cb.incrL1_d);
+    CUDA_CHECK_LAST();
 
-    err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
-    }
-
-    uniformAddKernel <<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, numCells, cb.incrL1_d);
-
-    cudaDeviceSynchronize();
+    HANDLE_ERROR(cudaDeviceSynchronize());
   } else if (cb.blocksPerGridL3 == 1) {
 
 
     scanKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(
         cb.gridStart_d, cb.gridCount_d, numCells, cb.sumsL1_d);
+    CUDA_CHECK_LAST();
 
-    
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-      printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
-    }
-
-    err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) {
-      printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
-    }
-
-    scanKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(cb.incrL1_d, cb.sumsL1_d,
-						   cb.blocksPerGridL1, cb.sumsL2_d);
+    scanKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(
+        cb.incrL1_d, cb.sumsL1_d, cb.blocksPerGridL1, cb.sumsL2_d);
+    CUDA_CHECK_LAST();
 
     scanKernel<<<cb.blocksPerGridL3, BLOCK_SIZE>>>(cb.incrL2_d, cb.sumsL2_d,
-						   cb.blocksPerGridL2, NULL);
+                                                   cb.blocksPerGridL2, NULL);
+    CUDA_CHECK_LAST();
 
-    uniformAddKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(cb.incrL1_d, cb.blocksPerGridL1,
-							 cb.incrL2_d);
-    uniformAddKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d, numCells,
-							 cb.incrL1_d);
+    uniformAddKernel<<<cb.blocksPerGridL2, BLOCK_SIZE>>>(
+        cb.incrL1_d, cb.blocksPerGridL1, cb.incrL2_d);
+    CUDA_CHECK_LAST();
 
-    cudaDeviceSynchronize();
+    uniformAddKernel<<<cb.blocksPerGridL1, BLOCK_SIZE>>>(cb.gridStart_d,
+                                                         numCells, cb.incrL1_d);
+    CUDA_CHECK_LAST();
+
+    HANDLE_ERROR(cudaDeviceSynchronize());
   } else {
     printf("The array of %d elements is too large for only 3 Layers", numCells);
     exit(EXIT_FAILURE);
   }
 
   /* ------ Phase 3: Parallel Scatter ------ */
-  cudaMemcpy(cb.insertPos_d, cb.gridStart_d, size,
-             cudaMemcpyDeviceToDevice);
+  HANDLE_ERROR(cudaMemcpy(cb.insertPos_d, cb.gridStart_d, size,
+                          cudaMemcpyDeviceToDevice));
 
   fillGridKernel<<<ceil(activeParticles / 384.0), 384>>>(
       cb.gridData_d, cb.insertPos_d, cb.predictedPositions_d, smoothingRadius,
       numCells1D, activeParticles);
-  
-   err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("someKernel launch failed: %s\n", cudaGetErrorString(err));
-  }
+  CUDA_CHECK_LAST();
+  HANDLE_ERROR(cudaDeviceSynchronize());
 
-  err = cudaDeviceSynchronize();
-  if (err != cudaSuccess) {
-    printf("someKernel execution failed: %s\n", cudaGetErrorString(err));
-  }
 
   /* ------ Cleanup ------ */
-  cudaEventRecord(stop);
+  HANDLE_ERROR(cudaEventRecord(stop));
 
-  cudaEventSynchronize(stop);
-  // float miliseconds = 0.0f;
-  // cudaEventElapsedTime(&miliseconds, start, stop);
-  // printf("Execution time: %f miliseconds \n", miliseconds);
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuBuildGrid Execution time: %f miliseconds \n", miliseconds);
   
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 __global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
@@ -386,8 +357,9 @@ __global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
   if (i < activeParticles) {
     int count = 0;
     int *currentNeighbours = &neighbourData[i * MAX_NEIGHBOURS];
+    Vec3 pi = predictedPositions[i];
     Cell cell =
-      PositionToCoord(predictedPositions[i], smoothingRadius, numCells1D);
+      PositionToCoord(pi, smoothingRadius, numCells1D);
 
     for (int ox = -1; ox <= 1; ++ox)
       for (int oy = -1; oy <= 1; ++oy)
@@ -402,7 +374,7 @@ __global__ void buildNeighboursKernel(int *neighbourData, int *neighbourCount,
           int idx = CellIndex(cx, cy, cz, numCells1D);
           for (int k = gridStart[idx]; k < gridStart[idx + 1]; ++k) {
             int j = gridData[k];
-            Vec3 diff = predictedPositions[j] - predictedPositions[i];
+            Vec3 diff = predictedPositions[j] - pi;
             float d2 = diff.Dot(diff);
             if (d2 <= smoothingRadius * smoothingRadius && count < MAX_NEIGHBOURS)
               currentNeighbours[count++] = j;
@@ -428,26 +400,67 @@ __global__ void needsNeighbourRebuildKernel(Vec3 *predictedPositions,
   }
 }
 
-void gpuBuildNeighbours(CudaBuffers &cb,
-                        float smoothingRadius, float skinRadius2,
-                        int numCells1D, int activeParticles,
+void gpuBuildNeighbours(CudaBuffers &cb, float smoothingRadius,
+                        float skinRadius2, int numCells1D, int activeParticles,
                         bool forceRebuild) {
+
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   if (forceRebuild) {
     int needsBuild = 1;
-    cudaMemcpy(cb.buildNeighbours_d, &needsBuild, sizeof(int), cudaMemcpyHostToDevice);
+    HANDLE_ERROR(cudaMemcpy(cb.buildNeighbours_d, &needsBuild, sizeof(int),
+                            cudaMemcpyHostToDevice));
   } else {
     needsNeighbourRebuildKernel<<<ceil(activeParticles / 384.0), 384>>>(
         cb.predictedPositions_d, cb.positionsAtLastBuild_d,
         cb.buildNeighbours_d, skinRadius2, activeParticles);
+    CUDA_CHECK_LAST();
+  }
+  HANDLE_ERROR(cudaEventRecord(stop));
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuBuildNeighbours Part 1 Execution time: %f miliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
+
+  cudaEvent_t start2, stop2;
+  HANDLE_ERROR(cudaEventCreate(&start2));
+  HANDLE_ERROR(cudaEventCreate(&stop2));
+
+  HANDLE_ERROR(cudaEventRecord(start2));
+
+  buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
+      cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
+      cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
+      activeParticles, cb.buildNeighbours_d);
+
+  HANDLE_ERROR(cudaEventRecord(stop2));
+  HANDLE_ERROR(cudaEventSynchronize(stop2));
+  miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start2, stop2));
+  printf("gpuBuildNeighbours Part 2 Execution time: %f miliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start2));
+  HANDLE_ERROR(cudaEventDestroy(stop2));
+  CUDA_CHECK_LAST();
+  int didRebuild;
+  HANDLE_ERROR(cudaMemcpy(&didRebuild, cb.buildNeighbours_d, sizeof(int),
+                            cudaMemcpyDeviceToHost));
+
+  if (didRebuild){
+    HANDLE_ERROR(cudaMemcpy(cb.positionsAtLastBuild_d, cb.predictedPositions_d,
+                            sizeof(Vec3) * activeParticles,
+                            cudaMemcpyDeviceToDevice));
   }
 
-    buildNeighboursKernel<<<ceil(activeParticles / 384.0), 384>>>(
-        cb.neighbourData_d, cb.neighbourCount_d, cb.predictedPositions_d,
-        cb.gridStart_d, cb.gridData_d, smoothingRadius, numCells1D,
-        activeParticles, cb.buildNeighbours_d);
 
-    cudaMemcpy(cb.positionsAtLastBuild_d, cb.predictedPositions_d,
-               sizeof(Vec3) * activeParticles, cudaMemcpyDeviceToDevice);
+
+;
 }
 
 __global__ void calculateLambdasKernel(float *allLambdas,
@@ -500,30 +513,31 @@ void gpuCalculateLambda(CudaBuffers &cb, float relaxation,
                         int activeParticles) {
 
   cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
 
-  cudaEventRecord(start);
+  HANDLE_ERROR(cudaEventRecord(start));
 
   float poly6_coeff_h = 315.0f / (64.0f * PI * powf(smoothingRadius, 9));
-  cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float));
+  HANDLE_ERROR(cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float)));
 
   float spiky_coeff_h = -45.0f / (PI * powf(smoothingRadius, 6));
-  cudaMemcpyToSymbol(spiky_coeff_d, &spiky_coeff_h, sizeof(float));
+  HANDLE_ERROR(cudaMemcpyToSymbol(spiky_coeff_d, &spiky_coeff_h, sizeof(float)));
 
   calculateLambdasKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.allLambdas_d, cb.predictedPositions_d, cb.neighbourData_d,
       cb.neighbourCount_d, relaxation, restDensity, smoothingRadius,
       activeParticles);
-  cudaEventRecord(stop);
+  CUDA_CHECK_LAST();
+  HANDLE_ERROR(cudaEventRecord(stop));
 
-  cudaEventSynchronize(stop);
-  // float miliseconds = 0.0f;
-  // cudaEventElapsedTime(&miliseconds, start, stop);
-  // printf("Execution time: %f milliseconds \n", miliseconds);
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuCalculateLambda Execution time: %f milliseconds \n", miliseconds);
   
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 __global__ void calculateDeltasKernel(Vec3 *deltas, Vec3 *predictedPositions,
@@ -563,12 +577,30 @@ __global__ void calculateDeltasKernel(Vec3 *deltas, Vec3 *predictedPositions,
   }
 }
 
-void gpuCalculateDeltas(CudaBuffers &cb, float restDensity,
-                        float wdq, float scorr, float smoothingRadius, int activeParticles) {
+void gpuCalculateDeltas(CudaBuffers &cb, float restDensity, float wdq,
+                        float scorr, float smoothingRadius,
+                        int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
+  
   calculateDeltasKernel<<<ceil(activeParticles / 128.0f), 128>>>(
       cb.deltas_d, cb.predictedPositions_d, cb.neighbourData_d,
       cb.neighbourCount_d, cb.allLambdas_d, restDensity, wdq, scorr,
       smoothingRadius, activeParticles);
+  CUDA_CHECK_LAST();
+
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuCalculateDeltas Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 __global__ void clampToBoundariesKernel(Vec3 *predictedPositions,
@@ -591,8 +623,25 @@ __global__ void clampToBoundariesKernel(Vec3 *predictedPositions,
 
 void gpuClampToBoundaries(CudaBuffers &cb, float radiusPx, int g_fb_w,
                           int g_fb_h, int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
+  
   clampToBoundariesKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, radiusPx, g_fb_w, g_fb_h, activeParticles);
+  CUDA_CHECK_LAST();
+
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuClampToBoundaries Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
@@ -651,8 +700,24 @@ __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
 // }
 
 void gpuProjectParticleSDF(CudaBuffers &cb, int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   projectParticleSDFKernel<<<ceil(activeParticles / 128.0), 128>>>(
-      cb.predictedPositions_d, cb.velocities_d, cb.colliders_d, activeParticles);
+      cb.predictedPositions_d, cb.velocities_d, cb.colliders_d,
+      activeParticles);
+  CUDA_CHECK_LAST();
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuProjectParticleSDF Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 void gpuProjectParticleTri(CudaBuffers &cb, Vec3 *predictedPositions_h,
@@ -676,16 +741,26 @@ __global__ void updateVelocityKernel(Vec3 *predictedPositions, Vec3 *positions,
   }
 }
 
-void gpuUpdateVelocities(CudaBuffers &cb, Vec3 *positions_h,
-                         float dt, float mSpeed, int activeParticles) {
+void gpuUpdateVelocities(CudaBuffers &cb, Vec3 *positions_h, float dt,
+                         float mSpeed, int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   updateVelocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.positions_d, cb.velocities_d, dt, mSpeed,
       activeParticles);
+  CUDA_CHECK_LAST();
+  HANDLE_ERROR(cudaEventRecord(stop));
 
-  // this copy can be reomved once OpenGL interop is done.
-  // cudaMemcpy(positions_h, cb.positions_d, activeParticles * sizeof(Vec3),
-  //            cudaMemcpyDeviceToHost); 
-
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuUpdateVelocities Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 
@@ -730,9 +805,24 @@ __global__ void viscocityKernel(Vec3 *predictedPositions, Vec3 *velocities,
 
 void gpuViscosity(CudaBuffers &cb, Vec3 *velocities_h, float h2, float xsphC,
                   int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   viscocityKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.predictedPositions_d, cb.velocities_d, cb.neighbourData_d,
       cb.neighbourCount_d, h2, xsphC, activeParticles);
+  CUDA_CHECK_LAST();
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuViscosity Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 __global__ void estimateRestDensityKernel(float *density,
@@ -761,49 +851,42 @@ __global__ void estimateRestDensityKernel(float *density,
 // only runs on initialisation and reset - copies are fine.
 void gpuEstimateRestDensity(CudaBuffers &cb, float *density_h,
                             float smoothingRadius, int numParticles) {
+
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   int centre = numParticles / 2;
   float *density_d;
 
   float h2 = smoothingRadius * smoothingRadius;
 
   float poly6_coeff_h = 315.0f / (64.0f * PI * powf(smoothingRadius, 9));
-  cudaError_t err;
-  err = cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float));
-  if (err != cudaSuccess) {
-    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
-	   __LINE__);
-    exit(EXIT_FAILURE);
-  }
+  HANDLE_ERROR(cudaMemcpyToSymbol(poly6_coeff_d, &poly6_coeff_h, sizeof(float)));
 
   *density_h = poly6_coeff_h * h2 * h2 * h2;
-  printf("init density: %f\n", *density_h);
-  err = cudaMalloc((void **)&density_d, sizeof(float));
-  if (err != cudaSuccess) {
-    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
-	   __LINE__);
-    exit(EXIT_FAILURE);
-  }
-  err =
-    cudaMemcpy(density_d, density_h, sizeof(float), cudaMemcpyHostToDevice);
-  if (err != cudaSuccess) {
-    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
-	   __LINE__);
-    exit(EXIT_FAILURE);
-  }
+  HANDLE_ERROR(cudaMalloc((void **)&density_d, sizeof(float)));
+
+  HANDLE_ERROR(cudaMemcpy(density_d, density_h, sizeof(float), cudaMemcpyHostToDevice));
 
   estimateRestDensityKernel<<<ceil(MAX_NEIGHBOURS / 32.0), 32>>>(
       density_d, cb.predictedPositions_d, cb.neighbourData_d,
       cb.neighbourCount_d, centre, h2);
+  CUDA_CHECK_LAST();
 
-  err = cudaMemcpy(density_h, density_d, sizeof(float), cudaMemcpyDeviceToHost);
-  if (err != cudaSuccess) {
-    printf("%s in %s at line %d \n", cudaGetErrorString(err), __FILE__,
-	   __LINE__);
-    exit(EXIT_FAILURE);
-  }
-  cudaFree(density_d);
+  HANDLE_ERROR(cudaMemcpy(density_h, density_d, sizeof(float), cudaMemcpyDeviceToHost));
+  HANDLE_ERROR(cudaFree(density_d));
 
-  printf("rest density: %f\n", *density_h);
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuViscosity Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
 
@@ -872,10 +955,27 @@ __global__ void vorticityKernel(Vec3 *velocities, Vec3 *predictedPositions,
   }
 }
 
-void gpuVorticity(CudaBuffers& cb, float smoothingRadius, float vorticityEpsilon, float dt, int activeParticles) {
+void gpuVorticity(CudaBuffers &cb, float smoothingRadius,
+                  float vorticityEpsilon, float dt, int activeParticles) {
+  cudaEvent_t start, stop;
+  HANDLE_ERROR(cudaEventCreate(&start));
+  HANDLE_ERROR(cudaEventCreate(&stop));
+
+  HANDLE_ERROR(cudaEventRecord(start));
   vorticityKernel<<<ceil(activeParticles / 128.0), 128>>>(
       cb.velocities_d, cb.predictedPositions_d, cb.vorticities_d,
       cb.neighbourData_d, cb.neighbourCount_d, smoothingRadius,
       vorticityEpsilon, dt, activeParticles);
+  CUDA_CHECK_LAST();
+
+  HANDLE_ERROR(cudaEventRecord(stop));
+
+  HANDLE_ERROR(cudaEventSynchronize(stop));
+  float miliseconds = 0.0f;
+  HANDLE_ERROR(cudaEventElapsedTime(&miliseconds, start, stop));
+  printf("gpuViscosity Execution time: %f milliseconds \n", miliseconds);
+  
+  HANDLE_ERROR(cudaEventDestroy(start));
+  HANDLE_ERROR(cudaEventDestroy(stop));
 }
 

@@ -70,10 +70,8 @@ struct Vec2 {
   Vec2 operator/(float s) const { float r=1.f/s; return {x*r, y*r}; }
 };
 
-struct alignas(16) Vec3 {
+struct Vec3 {
   float x, y, z;
-  float padding;
-
   DEVICE_CALLABLE
   float Magnitude() const { return SQRT(x * x + y * y + z * z); }
   DEVICE_CALLABLE

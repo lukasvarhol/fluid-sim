@@ -7,10 +7,10 @@ LineRenderer::LineRenderer(const std::vector<Vec3> &lines) {
 
   glGenBuffers(1, &VBO);
   glBindBuffer(GL_ARRAY_BUFFER, VBO);
-  glBufferData(GL_ARRAY_BUFFER, lines.size() * 4 * sizeof(float), lines.data(),
+  glBufferData(GL_ARRAY_BUFFER, lines.size() * sizeof(Vec3), lines.data(),
 	       GL_STATIC_DRAW);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3), (void *)0);
   glEnableVertexAttribArray(0);
 
   glBindVertexArray(0);

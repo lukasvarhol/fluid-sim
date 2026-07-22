@@ -194,7 +194,8 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
   if (tricklerMode){
 #ifdef USE_CUDA
     CudaBuffers& cb = *as->cudaBuffers;
-    TickTrickler(cb.positions_d, cb.predictedPositions_d, cb.velocities_d, cb.vorticities_d, dt);
+    TickTrickler(cb.positions_d, cb.predictedPositions_d, cb.velocities_d,
+                 cb.vorticities_d, dt);
 #else
     TickTrickler(positions.data(), predictedPositions.data(), velocities.data(), vorticity.data(), dt);
 #endif
@@ -586,12 +587,12 @@ void Particles::TickTrickler(Vec3* positions, Vec3* predictedPositions, Vec3* ve
                   tricklerOriginY - tricklerSpread,
                   tricklerOriginZ + jitter(rng)};
 #ifdef USE_CUDA
-    cudaMemcpy(&positions[idx], &spawnPos, sizeof(Vec3),
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(&predictedPositions[idx], &spawnPos, sizeof(Vec3),
-               cudaMemcpyHostToDevice);
-    cudaMemset(&velocities[idx], 0, sizeof(Vec3));
-    cudaMemset(&vorticities[idx], 0, sizeof(Vec3));
+    HANDLE_ERROR(cudaMemcpy(&positions[idx], &spawnPos, sizeof(Vec3),
+			    cudaMemcpyHostToDevice));
+    HANDLE_ERROR(cudaMemcpy(&predictedPositions[idx], &spawnPos, sizeof(Vec3),
+			    cudaMemcpyHostToDevice));
+    HANDLE_ERROR(cudaMemset(&velocities[idx], 0, sizeof(Vec3)));
+    HANDLE_ERROR(cudaMemset(&vorticities[idx], 0, sizeof(Vec3)));
 #else
     positions[idx]          = spawnPos;
     predictedPositions[idx] = spawnPos;

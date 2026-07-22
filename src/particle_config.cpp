@@ -25,7 +25,7 @@ float radiusLogical    =  7.0f;
 float energyRetention = 0.7f;
 
 #ifdef USE_CUDA
-unsigned int numParticles = 200'000;
+unsigned int numParticles = 500'000;
 float initSpacing = 0.013f;
 float smoothingRadius  =  0.035f;
 #else
