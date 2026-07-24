@@ -23,6 +23,13 @@ struct SDFCollider {
   float restitution;
 };
 
+// Triangle Collision (for Benchmarking)
+struct TriCollider {
+  Vec3 *triangles;
+  size_t count;
+  float restitution;
+};
+
 struct RGObject {
   RGObjectType type          = RGObjectType::BOX;
   std::string  name          = "Object";

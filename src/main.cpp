@@ -10,10 +10,12 @@
 
 bool isBenchmarking = false;
 bool runParallel = true;
+bool runGpu = false; // only used for benchmarks
 int currentFrame = 0;
 
 bool useTriangleCollisions = false;
 std::vector<TriCollider> gTriColliders;
+std::vector<Vec3> objTriangles_h;
 std::vector<Vec3> gClosestPoints;
 
 unsigned int MakeShader(const std::string &vertexFilepath, const std::string &fragmentFilepath);
@@ -100,6 +102,8 @@ int main(int argc, char *argv[]) {
       }
       if (backend == "cpu-sequential")
         runParallel = false;
+      if (backend == "gpu")
+	runGpu = true;
 
       if (collisionType == "tri")
 	useTriangleCollisions = true;
@@ -116,10 +120,23 @@ int main(int argc, char *argv[]) {
       GridState grid;
       AppState appState;
 
-     Particles particles(profilerParticles, smoothingRadius);
+      Particles particles(profilerParticles, smoothingRadius);
 
       std::vector<Vec3> triangles = LoadOBJTriangles("meshes/SChannel.obj");
-      
+      size_t objTriCount = triangles.size();
+
+#ifdef USE_CUDA
+      CudaBuffers cudaBuffers(particles);
+      appState.cudaBuffers = &cudaBuffers;
+
+      Vec3* objTriangles_d;
+      HANDLE_ERROR(cudaMalloc((void **)&objTriangles_d,
+                              objTriCount * sizeof(Vec3) * profilerColliders));
+#else
+      objTriangles_h.resize(objTriCount * profilerColliders);
+#endif
+
+
       int count = 0;
       for (int y = 4; y >= 0 && count < profilerColliders; --y) {
 	for (int z = 1; z <= 3 && count < profilerColliders; ++z) {
@@ -138,18 +155,33 @@ int main(int argc, char *argv[]) {
 	    } else  {
               TriCollider tc;
               Vec3 cellCenter = grid.CellCenterWorld(x, y, z);
-              for (Vec3 v : triangles) {
-                tc.triangles.push_back(v + cellCenter);
-              }
+              std::vector<Vec3> currentObj;
+              currentObj.resize(objTriCount);
+              for (size_t i{}; i < objTriCount; ++i) {
+                currentObj[i] = triangles[i] + cellCenter;
+	      }
+#ifdef USE_CUDA
+              cudaMemcpy(&objTriangles_d[count * objTriCount], currentObj.data(), objTriCount * sizeof(Vec3),
+                         cudaMemcpyHostToDevice);
+	      tc.triangles = &objTriangles_d[count *objTriCount];
+#else
+	      memcpy(&objTriangles_h[count * objTriCount], currentObj.data(), objTriCount * sizeof(Vec3));
+	      tc.triangles  =&objTriangles_h[count * objTriCount];
+#endif
               tc.restitution = energyRetention;
+	      tc.count = objTriCount;
               gTriColliders.push_back(tc);
 	      ++count;
             }
           }
         }
       }
-      gClosestPoints.resize(profilerParticles); 
-      	    
+      gClosestPoints.resize(profilerParticles);
+#ifdef USE_CUDA
+      HANDLE_ERROR(cudaMemcpy(cudaBuffers.triColliders_d, gTriColliders.data(),
+                              sizeof(TriCollider) * profilerColliders,
+                              cudaMemcpyHostToDevice));
+#endif
       for (int i = 0; i < profilerFrames; ++i) {
         particles.Update(1.0f / 60.0f, smoothingRadius, 2.0f, 640, 480,
                          Vec3{0.0f, 0.0f, 0.0f}, Vec3{0.0f, 0.0f, 0.0f}, 0.0f,colliders, &appState);
@@ -157,6 +189,9 @@ int main(int argc, char *argv[]) {
       }
 
       Profiler::Write();
+#ifdef USE_CUDA
+      HANDLE_ERROR(cudaFree(objTriangles_d));
+#endif
       return 0;
     }
   }
@@ -238,7 +273,6 @@ int main(int argc, char *argv[]) {
   CudaBuffers cudaBuffers(particles);
   appState.cudaBuffers = &cudaBuffers;
 #endif
-
 
   ObjectRenderer objectRenderer;
   SetupObjectRenderer(objectRenderer);

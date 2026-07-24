@@ -27,6 +27,8 @@ void gpuClampToBoundaries(CudaBuffers &cb, float radiusPx,
 
 void gpuProjectParticleSDF(CudaBuffers &cb, int activeParticles);
 
+void gpuProjectParticleTri(CudaBuffers &cb, Vec3 *closestPoints_h, int activeParticles);
+
 void gpuUpdateVelocities(CudaBuffers &cb, Vec3 *positions_h,
                          float dt, float mSpeed, int activeParticles);
 

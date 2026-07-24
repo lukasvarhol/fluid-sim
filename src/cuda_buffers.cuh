@@ -26,7 +26,6 @@ inline void checkLast(const char *file, int line) {
   }
 }
 
-
 struct Particles;
 
 class CudaBuffers {
@@ -35,9 +34,7 @@ public:
   CudaBuffers(const CudaBuffers &cb) = delete;
   CudaBuffers &operator=(const CudaBuffers &cb) = delete;
   ~CudaBuffers();
-  void printError(const cudaError_t err) const;
   void handleCellGridUpdate(int numCells1D);
-
 
   Vec3 *positions_d;
   Vec3 *velocities_d;
@@ -53,9 +50,10 @@ public:
   Vec3 *deltas_d;
   Vec3* vorticities_d;
   SDFCollider *colliders_d;
-  
+  TriCollider* triColliders_d;
+  Vec3 *closestPoints_d;
 
-  int* buildNeighbours_d;
+  int *buildNeighbours_d;
 
   int *sumsL1_d = NULL;
   int *sumsL2_d = NULL;
@@ -65,6 +63,5 @@ public:
   int blocksPerGridL1;
   int blocksPerGridL2;
   int blocksPerGridL3;
-
 };
 

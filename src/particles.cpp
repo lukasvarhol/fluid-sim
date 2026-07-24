@@ -333,10 +333,15 @@ void Particles::Update(float dt, float smoothingRadius, float radiusPx,
       } else {
         Profiler::Timer timer(COLLISION_TRI_BRUTE, currentFrame,
                               isBenchmarking);
+#ifdef USE_CUDA
+        CudaBuffers &cb = *as->cudaBuffers;
+        gpuProjectParticleTri(cb, gClosestPoints.data(), activeParticles);
+#else
         ParallelFor(activeParticles, [&](int i) {
           for (const TriCollider &collider : gTriColliders)
 	    ProjectParticleTri(predictedPositions[i], velocities[i], collider, gClosestPoints[i]);
         });
+#endif
       }
     }
   }

@@ -4,6 +4,7 @@
 #include "objects3d/sdf_collision.h"
 #include "particle_config.h"
 #include "particles.cuh"
+#include <math_constants.h>
 #include <cstdlib>
 #include <driver_types.h>
 
@@ -673,31 +674,31 @@ __global__ void projectParticleSDFKernel(Vec3 *positions, Vec3 *velocities,
   }
 }
 
-// __global__ void gpuProjectParticleTri(TriCollider* triColliders, Vec3* predictedPositions, Vec3* closestPointsOut, int  activeParticles){
+__global__ void gpuProjectParticleTri(TriCollider* triColliders, Vec3* predictedPositions, Vec3* closestPointsOut, int  activeParticles){
  
-//   int i = threadIdx.x + blockDim.x * blockIdx.x;
+  int i = threadIdx.x + blockDim.x * blockIdx.x;
 
-//   if (i < activeParticles) {
-//     for (size_t j{}; j < MAX_OBJECTS; ++j) {
-//       float minDistanceSquared = ::std::numeric_limits<float>::infinity();
-//       Vec3 closestPoint = Vec3{0.0f, 0.0f, 0.0f};
+  if (i < activeParticles) {
+    for (size_t j{}; j < MAX_OBJECTS; ++j) {
+      float minDistanceSquared = CUDART_INF_F;
+      Vec3 closestPoint = Vec3{0.0f, 0.0f, 0.0f};
 
-//       for (size_t k{}; k + 2 < triColliders[j].triangles.size(); k += 3) {
-//         Vec3 q = ClosestPtPointTriangle(
-//             predictedPositions[i], triColliders[j].triangles[k],
-//             triColliders[j].triangles[k + 1], triColliders[j].triangles[k + 2]);
+      for (size_t k{}; k + 2 < triColliders[j].count; k += 3) {
+        Vec3 q = ClosestPtPointTriangle(
+            predictedPositions[i], triColliders[j].triangles[k],
+            triColliders[j].triangles[k + 1], triColliders[j].triangles[k + 2]);
 
-//         Vec3 diff = predictedPositions[j] - q;
-//         float distanceSquared = diff.Dot(diff);
-//         if (distanceSquared < minDistanceSquared) {
-//           minDistanceSquared = distanceSquared;
-// 	  closestPoint = q;
-// 	}
-//       }
-//       closestPointsOut[j] = closestPoint;
-//     }
-//   }
-// }
+        Vec3 diff = predictedPositions[i] - q;
+        float distanceSquared = diff.Dot(diff);
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
+	  closestPoint = q;
+	}
+      }
+      closestPointsOut[i] = closestPoint;
+    }
+  }
+}
 
 void gpuProjectParticleSDF(CudaBuffers &cb, int activeParticles) {
   cudaEvent_t start, stop;
@@ -720,9 +721,11 @@ void gpuProjectParticleSDF(CudaBuffers &cb, int activeParticles) {
   HANDLE_ERROR(cudaEventDestroy(stop));
 }
 
-void gpuProjectParticleTri(CudaBuffers &cb, Vec3 *predictedPositions_h,
-                           Vec3 *closestPoints_h, int activeParticles) {
-  // cant't be bothered to do this now...
+void gpuProjectParticleTri(CudaBuffers &cb, Vec3 *closestPoints_h, int activeParticles) {
+  gpuProjectParticleTri<<<ceil(activeParticles / 128.0), 128>>>(
+      cb.triColliders_d, cb.predictedPositions_d, cb.closestPoints_d,
+      activeParticles);
+  CUDA_CHECK_LAST();
   return;
 }
 
